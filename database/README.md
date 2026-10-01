@@ -19,6 +19,15 @@ O `01_schema.sql` apaga e recria tudo, então pode ser rodado de novo sempre que
 | `atraso` | Cada atraso: `ORIGINADOR` (causa nova) ou `CONSEQUENTE` (herdado, com `atraso_pai_id`) |
 | `parecer` | A visão de cada área (CCO, piloto, manutenção) sobre um atraso |
 | `configuracao` | Tempo mínimo de solo (30 min) usado no cálculo da folga |
+| `funcionario`, `passageiro` | Contas de acesso (senhas com hash bcrypt) |
+| `sessao` | Tokens de login |
+| `passageiro_voo` | Voos que cada passageiro acompanha |
+| `entrar_funcionario()` / `entrar_passageiro()` / `cadastrar_passageiro()` | Login e cadastro; devolvem o token da sessão |
+| `meus_voos()` / `acompanhar_voo()` | Área do passageiro: situação dos voos e motivo em linguagem simples |
+| `relogio` / `agora()` | Relógio da simulação (em produção seria `now()`) |
+| `evento_simulado` | Problemas programados do dia; acontecem quando o relógio chega no horário |
+| `avancar_relogio()` / `reiniciar_simulacao()` | Controle do relógio; exigem token de funcionário |
+| `op_registrar_atraso()` / `op_validar_atraso()` / `op_registrar_parecer()` / `op_remover_atraso()` | Ações da operação; exigem token de funcionário |
 | `registrar_atraso()` | Registro rápido; dispara a propagação automática |
 | `propagar_atrasos()` | Recalcula a cadeia de voos da aeronave no dia |
 | `registrar_parecer()` / `validar_atraso()` | Etapa de análise e causa oficial |
@@ -49,13 +58,13 @@ const supabase = window.supabase.createClient(URL, ANON_KEY);
 // ler voos
 const { data } = await supabase.from('vw_voo_resumo').select('*');
 
-// registrar atraso (propaga sozinho)
-await supabase.rpc('registrar_atraso', {
-  p_voo_id: 1, p_motivo: '41', p_minutos: 55, p_observacao: 'Pane no freio'
+// registrar atraso (propaga sozinho) — exige o token do funcionário logado
+await supabase.rpc('op_registrar_atraso', {
+  p_token: token, p_voo_id: 1, p_motivo: '41', p_minutos: 55, p_observacao: 'Pane no freio'
 });
 
 // árvore da causa raiz
 const { data: arvore } = await supabase.rpc('cadeia_atraso', { p_raiz_id: 1 });
 ```
 
-Segurança: a chave pública só consegue **ler** as tabelas. Qualquer alteração passa pelas funções, que aplicam as regras de negócio.
+Segurança: a chave pública só consegue **ler** as tabelas de voos e atrasos. As tabelas de contas e sessões ficam fechadas, e qualquer alteração passa pelas funções, que conferem o login e aplicam as regras de negócio.

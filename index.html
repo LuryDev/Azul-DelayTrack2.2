@@ -3,142 +3,105 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Azul DelayTrack · Motivos de Atrasos Aereos</title>
+  <title>Entrar · DelayTrack</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M9 34 C 18 33, 28 26, 40 9' fill='none' stroke='%23F2A93B' stroke-width='6' stroke-linecap='round'/%3E%3Ccircle cx='9' cy='34' r='5' fill='%230E3B43'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="publico.css">
 </head>
 <body>
-  <header class="topo">
-    <div class="marca">
-      <svg class="marca-icone" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>
-      </svg>
+  <div class="login">
+    <aside class="login-lado">
+      <div class="marca">
+        <span data-marca></span>
+        <span class="marca-nome">Azul<span class="marca-produto">DelayTrack</span></span>
+      </div>
+
       <div>
-        <h1>Azul DelayTrack</h1>
-        <p>Motivos de Atrasos Aereos</p>
+        <h1>Seu voo, sem surpresas.</h1>
+        <p>Veja na hora se o seu voo atrasou, o novo horário e o motivo real do atraso.</p>
       </div>
-    </div>
-    <label class="seletor-data">
-      <span>Dia de operação</span>
-      <select id="data"></select>
-    </label>
-  </header>
 
-  <nav class="abas" role="tablist">
-    <button class="aba ativa" data-aba="painel">Painel</button>
-    <button class="aba" data-aba="registrar">Registrar atraso</button>
-    <button class="aba" data-aba="cadeia">Cadeia</button>
-    <button class="aba" data-aba="analise">Análise</button>
-    <button class="aba" data-aba="relatorios">Relatórios</button>
-  </nav>
+      <svg class="login-rota" viewBox="0 0 400 200" aria-hidden="true">
+        <path d="M10 190 C 120 180, 230 120, 390 10" fill="none" stroke="#F2A93B" stroke-width="3" stroke-dasharray="2 10" stroke-linecap="round"/>
+      </svg>
+    </aside>
 
-  <main>
-    <div id="aviso-config" class="aviso" hidden>
-      Configure a <b>Project URL</b> e a <b>anon key</b> do Supabase no arquivo <code>config.js</code>.
-    </div>
-
-    <!-- PAINEL -->
-    <section id="painel" class="tela ativa">
-      <div class="kpis" id="kpis"></div>
-      <div class="cartao">
-        <div class="cartao-topo">
-          <h2>Voos do dia por aeronave</h2>
-          <div class="legenda">
-            <span><i class="cor herdado"></i>Herdado</span>
-            <span><i class="cor novo"></i>Causa nova</span>
-          </div>
+    <main class="login-principal">
+      <div class="cartao-login">
+        <div class="abas" role="tablist" aria-label="Tipo de acesso">
+          <button class="aba" role="tab" id="aba-passageiro" aria-selected="true" aria-controls="painel-passageiro">Passageiro</button>
+          <button class="aba" role="tab" id="aba-funcionario" aria-selected="false" aria-controls="painel-funcionario">Funcionário</button>
         </div>
-        <div id="linhas-aeronaves"></div>
-      </div>
-      <div class="cartao" id="detalhe-voo" hidden></div>
-    </section>
 
-    <!-- REGISTRAR -->
-    <section id="registrar" class="tela">
-      <div class="grade-2">
-        <form class="cartao" id="form-atraso">
-          <h2>Registro rápido</h2>
-          <p class="ajuda">Registre só o que aconteceu neste voo. Os voos seguintes da aeronave são calculados automaticamente.</p>
-          <label>Voo
-            <select id="f-voo" required></select>
-          </label>
-          <label>Motivo
-            <select id="f-motivo" required></select>
-          </label>
-          <label>Minutos de atraso
-            <input id="f-minutos" type="number" min="1" max="600" required placeholder="Ex.: 40">
-          </label>
-          <label>Observação
-            <textarea id="f-obs" rows="3" placeholder="O que aconteceu? (opcional)"></textarea>
-          </label>
-          <button type="submit" class="botao">Registrar e propagar</button>
-        </form>
-
-        <div class="cartao">
-          <h2>Impacto do registro</h2>
-          <div id="impacto" class="vazio">Após registrar, a cadeia de voos afetados aparece aqui.</div>
+        <div id="aviso-config" class="erro" hidden>
+          Configure a Project URL e a anon key do Supabase no arquivo config.js.
         </div>
-      </div>
 
-      <div class="cartao">
-        <h2>Atrasos originadores do dia</h2>
-        <div id="lista-originadores"></div>
-      </div>
-    </section>
+        <!-- PASSAGEIRO: entrar -->
+        <section id="painel-passageiro" role="tabpanel" aria-labelledby="aba-passageiro">
+          <form id="form-entrar">
+            <h2>Entre na sua conta</h2>
+            <p class="apoio">Use o e-mail e a senha que você cadastrou.</p>
+            <div class="erro" hidden></div>
+            <label class="campo"><span>E-mail</span>
+              <input type="email" name="email" autocomplete="email" required>
+            </label>
+            <label class="campo"><span>Senha</span>
+              <input type="password" name="senha" autocomplete="current-password" required>
+            </label>
+            <button class="botao largo" type="submit">Entrar</button>
+            <p class="troca">Ainda não tem conta? <button type="button" class="link" data-ir="cadastro">Criar conta</button></p>
+          </form>
 
-    <!-- CADEIA -->
-    <section id="cadeia" class="tela">
-      <div class="cartao">
-        <div class="cartao-topo">
-          <h2>Cadeia de atraso</h2>
-          <select id="c-raiz"></select>
-        </div>
-        <div id="resumo-cadeia" class="resumo-cadeia"></div>
-        <div id="arvore"></div>
-      </div>
-    </section>
+          <!-- PASSAGEIRO: criar conta -->
+          <form id="form-cadastro" hidden>
+            <h2>Crie sua conta</h2>
+            <p class="apoio">Leva menos de um minuto.</p>
+            <div class="erro" hidden></div>
+            <label class="campo"><span>Nome</span>
+              <input name="nome" autocomplete="name" required>
+            </label>
+            <label class="campo"><span>E-mail</span>
+              <input type="email" name="email" autocomplete="email" required>
+            </label>
+            <label class="campo"><span>Senha</span>
+              <input type="password" name="senha" autocomplete="new-password" minlength="6" required>
+            </label>
+            <button class="botao largo" type="submit">Criar conta</button>
+            <p class="troca">Já tem conta? <button type="button" class="link" data-ir="entrar">Entrar</button></p>
+          </form>
+        </section>
 
-    <!-- ANÁLISE -->
-    <section id="analise" class="tela">
-      <div class="grade-analise">
-        <div class="cartao">
-          <h2>Atrasos originadores</h2>
-          <div id="lista-analise"></div>
-        </div>
-        <div class="cartao" id="painel-analise">
-          <div class="vazio">Selecione um atraso para ver os pareceres das áreas.</div>
-        </div>
-      </div>
-    </section>
+        <!-- FUNCIONÁRIO -->
+        <section id="painel-funcionario" role="tabpanel" aria-labelledby="aba-funcionario" hidden>
+          <form id="form-funcionario">
+            <h2>Acesso da operação</h2>
+            <p class="apoio">Entre com o seu código de identificação da Alçar.</p>
+            <div class="erro" hidden></div>
+            <label class="campo"><span>Código de identificação</span>
+              <input name="codigo" placeholder="AL-0000" autocomplete="username" autocapitalize="characters" required>
+            </label>
+            <label class="campo"><span>Senha</span>
+              <input type="password" name="senha" autocomplete="current-password" required>
+            </label>
+            <button class="botao largo" type="submit">Entrar na operação</button>
+          </form>
+        </section>
 
-    <!-- RELATÓRIOS -->
-    <section id="relatorios" class="tela">
-      <div id="insight" class="insight"></div>
-      <div class="grade-2">
-        <div class="cartao">
-          <h2>Pelo sintoma <span class="etiqueta cinza">jeito antigo</span></h2>
-          <p class="ajuda">Como os relatórios ficam quando cada voo é classificado isoladamente.</p>
-          <div id="graf-sintoma"></div>
-        </div>
-        <div class="cartao">
-          <h2>Pela causa raiz <span class="etiqueta">com a solução</span></h2>
-          <p class="ajuda">Os mesmos minutos, atribuídos ao evento que originou o problema.</p>
-          <div id="graf-raiz"></div>
-        </div>
+        <details class="demo">
+          <summary>Contas de demonstração</summary>
+          <p>Passageira: <code>ana@exemplo.com</code> · senha <code>senha123</code></p>
+          <p>Funcionária do CCO: <code>AL-1001</code> · senha <code>alcar2026</code></p>
+        </details>
       </div>
-      <div class="cartao">
-        <h2>Minutos por área responsável</h2>
-        <div id="tabela-areas"></div>
-      </div>
-    </section>
-  </main>
-
-  <div id="toast" class="toast" hidden></div>
+    </main>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app.js"></script>
+  <script src="sessao.js"></script>
+  <script src="login.js"></script>
 </body>
 </html>

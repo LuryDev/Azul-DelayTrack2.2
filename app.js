@@ -3,8 +3,8 @@
 //  Front-end em JavaScript puro conectado ao Supabase
 // =====================================================================
 
-const configurado = typeof SUPABASE_URL === 'string' && SUPABASE_URL.startsWith('http');
-const db = configurado ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+// A conexão com o banco e o login ficam em sessao.js
+let usuario = null;   // funcionário logado
 
 const AREAS = ['CCO', 'Piloto', 'Manutenção', 'Aeroporto', 'Tráfego aéreo', 'Tripulação'];
 
@@ -52,24 +52,26 @@ function toast(msg, erro = false) {
   t.className = 'toast' + (erro ? ' erro' : '');
   t.hidden = false;
   clearTimeout(timerToast);
-  timerToast = setTimeout(() => (t.hidden = true), 4000);
-}
-
-async function consulta(promessa) {
-  const { data, error } = await promessa;
-  if (error) throw new Error(error.message);
-  return data;
+  timerToast = setTimeout(() => (t.hidden = true), 5000);
 }
 
 // ---------------------------------------------------------------------
 // Carregamento de dados
 // ---------------------------------------------------------------------
 async function iniciar() {
+  desenharMarcas();
   configurarAbas();
   if (!configurado) {
     $('aviso-config').hidden = false;
     return;
   }
+
+  usuario = await exigirSessao('FUNCIONARIO');
+  if (!usuario) return;
+  $('usuario-nome').textContent = usuario.nome;
+  $('usuario-info').textContent = `${usuario.codigo} · ${usuario.area}`;
+  $('btn-sair').addEventListener('click', sair);
+  configurarRelogio();
 
   try {
     const [motivos, aeronaves, datasVoo] = await Promise.all([
@@ -105,7 +107,8 @@ async function recarregar() {
   const inicio = estado.data;
   const fim = diaSeguinte(estado.data);
 
-  const [voos, atrasos] = await Promise.all([
+  const [relogio, voos, atrasos] = await Promise.all([
+    consulta(db.from('relogio').select('agora').single()),
     consulta(db.from('vw_voo_resumo').select('*')
       .gte('partida_prevista', inicio).lt('partida_prevista', fim)
       .order('partida_prevista')),
@@ -113,6 +116,8 @@ async function recarregar() {
       .gte('partida_prevista', inicio).lt('partida_prevista', fim)
       .order('partida_prevista').order('id')),
   ]);
+  estado.agora = relogio.agora;
+  $('relogio-hora').textContent = hora(estado.agora);
   estado.voos = voos;
   estado.atrasos = atrasos;
 
@@ -126,6 +131,67 @@ async function recarregar() {
   await renderCadeia();
   renderAnalise();
   await renderRelatorios();
+}
+
+// ---------------------------------------------------------------------
+// Relógio da simulação
+// ---------------------------------------------------------------------
+const FIM_DO_DIA = '15:00';
+let reproduzindo = null;
+let avancando = false;
+
+async function avancar(minutos) {
+  if (avancando) return;
+  avancando = true;
+  try {
+    const r = await consulta(db.rpc('avancar_relogio', { p_token: Sessao.token(), p_minutos: minutos }));
+    await recarregar();
+    if (r.eventos.length) {
+      toast(r.eventos.map((e) => `${e.hora} · ${e.texto}`).join('  |  '));
+    }
+    if (reproduzindo && hora(estado.agora) >= FIM_DO_DIA) pararReproducao();
+  } catch (e) {
+    pararReproducao();
+    toast(e.message, true);
+  } finally {
+    avancando = false;
+  }
+}
+
+function pararReproducao() {
+  clearInterval(reproduzindo);
+  reproduzindo = null;
+  $('btn-play').textContent = '▶ Reproduzir';
+  $('btn-play').classList.remove('ativo');
+}
+
+function configurarRelogio() {
+  document.querySelectorAll('[data-avancar]').forEach((b) => {
+    b.addEventListener('click', () => avancar(Number(b.dataset.avancar)));
+  });
+
+  // ▶ o horário anda 5 minutos a cada 1,5 segundo
+  $('btn-play').addEventListener('click', () => {
+    if (reproduzindo) { pararReproducao(); return; }
+    reproduzindo = setInterval(() => avancar(5), 1500);
+    $('btn-play').textContent = '❚❚ Pausar';
+    $('btn-play').classList.add('ativo');
+  });
+
+  $('btn-reiniciar').addEventListener('click', async () => {
+    if (!confirm('Voltar o dia para 06:00? Todos os atrasos e pareceres serão apagados.')) return;
+    pararReproducao();
+    try {
+      await consulta(db.rpc('reiniciar_simulacao', { p_token: Sessao.token() }));
+      estado.vooSelecionado = null;
+      estado.analiseSelecionada = null;
+      estado.raizSelecionada = null;
+      $('impacto').className = 'vazio';
+      $('impacto').textContent = 'Após registrar, a cadeia de voos afetados aparece aqui.';
+      await recarregar();
+      toast('Dia reiniciado: 06:00, nenhum atraso registrado.');
+    } catch (e) { toast(e.message, true); }
+  });
 }
 
 // ---------------------------------------------------------------------
@@ -186,11 +252,14 @@ function renderPainel() {
   renderDetalheVoo();
 }
 
+const FASE = { EMBARQUE: 'Embarque', EM_VOO: 'Em voo', POUSOU: 'Pousou' };
+
 function cartaoVoo(v) {
   const classes = ['voo'];
   if (v.atraso_total > 0) classes.push('atrasado');
   if (v.atraso_novo > 0) classes.push('tem-novo');
   if (v.id === estado.vooSelecionado) classes.push('selecionado');
+  if (v.fase === 'POUSOU') classes.push('pousou');
 
   const barra = v.atraso_total > 0
     ? `<div class="barra-atraso">
@@ -201,7 +270,7 @@ function cartaoVoo(v) {
 
   return `
     <button class="${classes.join(' ')}" data-id="${v.id}">
-      <div class="voo-numero">${esc(v.numero)}</div>
+      <div class="voo-numero">${esc(v.numero)}${FASE[v.fase] ? `<span class="fase fase-${v.fase.toLowerCase()}">${FASE[v.fase]}</span>` : ''}</div>
       <div class="voo-rota">${esc(v.origem)} → ${esc(v.destino)}</div>
       <div class="voo-hora">${hora(v.partida_prevista)}${v.atraso_total ? ` → ${hora(v.partida_estimada)}` : ''}</div>
       <div class="voo-atraso ${v.atraso_total ? '' : 'ok'}">${v.atraso_total ? `+${min(v.atraso_total)}` : 'No horário'}</div>
@@ -272,7 +341,10 @@ function renderRegistrar() {
   $('f-voo').innerHTML = '<option value="">Selecione...</option>' +
     Object.entries(porAeronave).map(([mat, lista]) => `
       <optgroup label="${esc(mat)}">
-        ${lista.map((v) => `<option value="${v.id}">${esc(v.numero)} · ${esc(v.origem)}→${esc(v.destino)} · ${hora(v.partida_prevista)}</option>`).join('')}
+        ${lista.map((v) => {
+          const partiu = v.fase === 'EM_VOO' || v.fase === 'POUSOU';
+          return `<option value="${v.id}" ${partiu ? 'disabled' : ''}>${esc(v.numero)} · ${esc(v.origem)}→${esc(v.destino)} · ${hora(v.partida_estimada)}${partiu ? ' · já decolou' : ''}</option>`;
+        }).join('')}
       </optgroup>`).join('');
   if (atual) $('f-voo').value = atual;
 
@@ -311,7 +383,8 @@ function configurarFormularios() {
     const botao = e.target.querySelector('button[type=submit]');
     botao.disabled = true;
     try {
-      const id = await consulta(db.rpc('registrar_atraso', {
+      const id = await consulta(db.rpc('op_registrar_atraso', {
+        p_token: Sessao.token(),
         p_voo_id: Number($('f-voo').value),
         p_motivo: $('f-motivo').value,
         p_minutos: Number($('f-minutos').value),
@@ -339,7 +412,7 @@ function configurarFormularios() {
 async function removerAtraso(id) {
   if (!confirm('Remover este atraso? Os voos seguintes serão recalculados.')) return;
   try {
-    await consulta(db.rpc('remover_atraso', { p_atraso_id: id }));
+    await consulta(db.rpc('op_remover_atraso', { p_token: Sessao.token(), p_atraso_id: id }));
     if (estado.raizSelecionada === id) estado.raizSelecionada = null;
     if (estado.analiseSelecionada === id) estado.analiseSelecionada = null;
     await recarregar();
@@ -487,7 +560,7 @@ function renderPainelAnalise() {
       <h3>Adicionar parecer</h3>
       <div class="linha-form">
         <label>Área
-          <select id="p-area">${AREAS.map((x) => `<option>${esc(x)}</option>`).join('')}</select>
+          <select id="p-area">${AREAS.map((x) => `<option ${x === usuario.area ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
         </label>
         <label>Motivo na visão da área
           <select id="p-motivo">${opcoesMotivo(a.sintoma_codigo)}</select>
@@ -513,7 +586,8 @@ function renderPainelAnalise() {
   $('form-parecer').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
-      await consulta(db.rpc('registrar_parecer', {
+      await consulta(db.rpc('op_registrar_parecer', {
+        p_token: Sessao.token(),
         p_atraso_id: a.id,
         p_area: $('p-area').value,
         p_motivo: $('p-motivo').value,
@@ -527,7 +601,7 @@ function renderPainelAnalise() {
   $('form-validar').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
-      await consulta(db.rpc('validar_atraso', { p_atraso_id: a.id, p_motivo_final: $('v-motivo').value }));
+      await consulta(db.rpc('op_validar_atraso', { p_token: Sessao.token(), p_atraso_id: a.id, p_motivo_final: $('v-motivo').value }));
       await recarregar();
       toast('Causa oficial definida. A cadeia foi atualizada.');
     } catch (err) { toast(err.message, true); }

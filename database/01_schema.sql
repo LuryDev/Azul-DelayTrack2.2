@@ -11,6 +11,12 @@
 -- =====================================================================
 
 -- Limpa tudo (permite rodar o script de novo sem erro)
+drop function if exists cadastrar_passageiro, entrar_passageiro, entrar_funcionario, sessao_atual,
+                        sair, meus_voos, acompanhar_voo, deixar_de_acompanhar, funcionario_da_sessao,
+                        passageiro_da_sessao, motivo_para_cliente, op_registrar_atraso, op_remover_atraso,
+                        op_registrar_parecer, op_validar_atraso cascade;
+drop function if exists agora, aplicar_eventos, avancar_relogio, reiniciar_simulacao, fase_do_voo cascade;
+drop table    if exists passageiro_voo, sessao, passageiro, funcionario, evento_simulado, relogio cascade;
 drop view     if exists vw_minutos_por_causa_raiz cascade;
 drop view     if exists vw_minutos_por_sintoma    cascade;
 drop view     if exists vw_atraso_detalhado       cascade;
@@ -31,6 +37,19 @@ drop table    if exists configuracao cascade;
 -- ---------------------------------------------------------------------
 -- TABELAS
 -- ---------------------------------------------------------------------
+
+-- Relógio da simulação: o "agora" do sistema. Na demonstração ele é
+-- avançado pela tela da operação; em produção seria simplesmente now().
+create table relogio (
+    id    int primary key default 1 check (id = 1),
+    agora timestamp not null
+);
+insert into relogio values (1, '2026-10-05 06:00');
+
+create function agora() returns timestamp
+language sql stable
+set search_path = public
+as $$ select agora from relogio where id = 1 $$;
 
 create table configuracao (
     chave text primary key,
@@ -75,6 +94,7 @@ create table atraso (
     status        text not null default 'PROVISORIO'
                   check (status in ('PROVISORIO', 'VALIDADO')),
     observacao    text,
+    registrado_por text,                 -- funcionário que registrou
     registrado_em timestamp not null default now(),
     -- regra de integridade: originador não tem pai, consequente sempre tem
     check ((tipo = 'ORIGINADOR'  and atraso_pai_id is null) or
@@ -90,6 +110,7 @@ create table parecer (
     area          text not null,
     motivo_codigo text not null references motivo(codigo),
     justificativa text,
+    funcionario   text,                  -- quem registrou o parecer
     criado_em     timestamp not null default now()
 );
 
@@ -188,8 +209,8 @@ begin
         raise exception 'O motivo % é gerado automaticamente pelo sistema', p_motivo;
     end if;
 
-    insert into atraso (voo_id, motivo_codigo, minutos, tipo, observacao)
-    values (p_voo_id, p_motivo, p_minutos, 'ORIGINADOR', p_observacao)
+    insert into atraso (voo_id, motivo_codigo, minutos, tipo, observacao, registrado_em)
+    values (p_voo_id, p_motivo, p_minutos, 'ORIGINADOR', p_observacao, agora())
     returning id into v_id;
 
     perform propagar_atrasos(v_voo.matricula, v_voo.partida_prevista::date);
@@ -322,15 +343,26 @@ select a.id, a.voo_id, v.numero as voo_numero, v.matricula,
 
 -- Resumo de cada voo: atraso total, herdado e novo
 create view vw_voo_resumo as
-select v.id, v.numero, v.matricula, v.origem, v.destino,
-       v.partida_prevista, v.chegada_prevista,
-       coalesce(sum(a.minutos), 0)::int as atraso_total,
-       coalesce(sum(a.minutos) filter (where a.tipo = 'CONSEQUENTE'), 0)::int as atraso_herdado,
-       coalesce(sum(a.minutos) filter (where a.tipo = 'ORIGINADOR'),  0)::int as atraso_novo,
-       v.partida_prevista + make_interval(mins => coalesce(sum(a.minutos), 0)::int) as partida_estimada
-  from voo v
-  left join atraso a on a.voo_id = v.id
- group by v.id;
+select r.*,
+       -- fase do voo conforme o relógio da simulação
+       case
+         when agora() >= r.chegada_estimada then 'POUSOU'
+         when agora() >= r.partida_estimada then 'EM_VOO'
+         when agora() >= r.partida_estimada - interval '40 minutes' then 'EMBARQUE'
+         else 'PROGRAMADO'
+       end as fase
+  from (
+    select v.id, v.numero, v.matricula, v.origem, v.destino,
+           v.partida_prevista, v.chegada_prevista,
+           coalesce(sum(a.minutos), 0)::int as atraso_total,
+           coalesce(sum(a.minutos) filter (where a.tipo = 'CONSEQUENTE'), 0)::int as atraso_herdado,
+           coalesce(sum(a.minutos) filter (where a.tipo = 'ORIGINADOR'),  0)::int as atraso_novo,
+           v.partida_prevista + make_interval(mins => coalesce(sum(a.minutos), 0)::int) as partida_estimada,
+           v.chegada_prevista + make_interval(mins => coalesce(sum(a.minutos), 0)::int) as chegada_estimada
+      from voo v
+      left join atraso a on a.voo_id = v.id
+     group by v.id
+  ) r;
 
 -- Como os relatórios ficariam do jeito antigo (pelo sintoma)
 create view vw_minutos_por_sintoma as
@@ -347,6 +379,411 @@ select partida_prevista::date as data, causa_raiz_codigo as codigo,
        count(*)::int as ocorrencias, sum(minutos)::int as minutos
   from vw_atraso_detalhado
  group by 1, 2, 3, 4;
+
+
+-- ---------------------------------------------------------------------
+-- ACESSO: funcionários (código de identificação) e passageiros (e-mail)
+-- As senhas são guardadas com hash bcrypt (extensão pgcrypto).
+-- ---------------------------------------------------------------------
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+
+create table funcionario (
+    id         serial primary key,
+    codigo     text not null unique,        -- ex.: AL-1001
+    nome       text not null,
+    area       text not null,               -- CCO, Aeroporto, Manutenção...
+    senha_hash text not null
+);
+
+create table passageiro (
+    id         serial primary key,
+    nome       text not null,
+    email      text not null unique,
+    senha_hash text not null,
+    criado_em  timestamp not null default now()
+);
+
+create table sessao (
+    token          uuid primary key default gen_random_uuid(),
+    funcionario_id int references funcionario(id) on delete cascade,
+    passageiro_id  int references passageiro(id)  on delete cascade,
+    expira_em      timestamp not null,
+    check ((funcionario_id is null) <> (passageiro_id is null))
+);
+
+-- voos que cada passageiro acompanha
+create table passageiro_voo (
+    passageiro_id int not null references passageiro(id) on delete cascade,
+    voo_id        int not null references voo(id) on delete cascade,
+    primary key (passageiro_id, voo_id)
+);
+
+create function funcionario_da_sessao(p_token uuid)
+returns funcionario
+language plpgsql security definer set search_path = public
+as $$
+declare
+    v funcionario;
+begin
+    select f.* into v from sessao s join funcionario f on f.id = s.funcionario_id
+     where s.token = p_token and s.expira_em > now();
+    if not found then
+        if exists (select 1 from sessao where token = p_token and passageiro_id is not null) then
+            raise exception 'Acesso restrito a funcionários.';
+        end if;
+        raise exception 'Sessão expirada. Entre novamente.';
+    end if;
+    return v;
+end;
+$$;
+
+create function passageiro_da_sessao(p_token uuid)
+returns passageiro
+language plpgsql security definer set search_path = public
+as $$
+declare
+    v passageiro;
+begin
+    select p.* into v from sessao s join passageiro p on p.id = s.passageiro_id
+     where s.token = p_token and s.expira_em > now();
+    if not found then
+        raise exception 'Sessão expirada. Entre novamente.';
+    end if;
+    return v;
+end;
+$$;
+
+create function cadastrar_passageiro(p_nome text, p_email text, p_senha text)
+returns uuid
+language plpgsql security definer set search_path = public, extensions
+as $$
+declare
+    v_id    int;
+    v_token uuid;
+begin
+    if length(trim(p_nome)) < 2 then raise exception 'Informe seu nome.'; end if;
+    if p_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then raise exception 'Informe um e-mail válido.'; end if;
+    if length(p_senha) < 6 then raise exception 'A senha precisa ter pelo menos 6 caracteres.'; end if;
+    if exists (select 1 from passageiro where email = lower(trim(p_email))) then
+        raise exception 'Já existe uma conta com este e-mail. Entre com sua senha.';
+    end if;
+
+    insert into passageiro (nome, email, senha_hash)
+    values (trim(p_nome), lower(trim(p_email)), crypt(p_senha, gen_salt('bf')))
+    returning id into v_id;
+
+    insert into sessao (passageiro_id, expira_em) values (v_id, now() + interval '30 days')
+    returning token into v_token;
+    return v_token;
+end;
+$$;
+
+create function entrar_passageiro(p_email text, p_senha text)
+returns uuid
+language plpgsql security definer set search_path = public, extensions
+as $$
+declare
+    v_p     passageiro;
+    v_token uuid;
+begin
+    select * into v_p from passageiro where email = lower(trim(p_email));
+    if not found or v_p.senha_hash <> crypt(p_senha, v_p.senha_hash) then
+        raise exception 'E-mail ou senha incorretos.';
+    end if;
+    insert into sessao (passageiro_id, expira_em) values (v_p.id, now() + interval '30 days')
+    returning token into v_token;
+    return v_token;
+end;
+$$;
+
+create function entrar_funcionario(p_codigo text, p_senha text)
+returns uuid
+language plpgsql security definer set search_path = public, extensions
+as $$
+declare
+    v_f     funcionario;
+    v_token uuid;
+begin
+    select * into v_f from funcionario where codigo = upper(trim(p_codigo));
+    if not found or v_f.senha_hash <> crypt(p_senha, v_f.senha_hash) then
+        raise exception 'Código de identificação ou senha incorretos.';
+    end if;
+    insert into sessao (funcionario_id, expira_em) values (v_f.id, now() + interval '12 hours')
+    returning token into v_token;
+    return v_token;
+end;
+$$;
+
+-- Quem está logado (usado pelas páginas ao abrir)
+create function sessao_atual(p_token uuid)
+returns jsonb
+language sql stable security definer set search_path = public
+as $$
+    select case
+        when s.funcionario_id is not null then
+            jsonb_build_object('tipo', 'FUNCIONARIO', 'nome', f.nome, 'codigo', f.codigo, 'area', f.area)
+        else
+            jsonb_build_object('tipo', 'PASSAGEIRO', 'nome', p.nome, 'email', p.email)
+        end
+      from sessao s
+      left join funcionario f on f.id = s.funcionario_id
+      left join passageiro  p on p.id = s.passageiro_id
+     where s.token = p_token and s.expira_em > now();
+$$;
+
+create function sair(p_token uuid)
+returns void
+language sql security definer set search_path = public
+as $$ delete from sessao where token = p_token $$;
+
+-- ---------------------------------------------------------------------
+-- ÁREA DO PASSAGEIRO
+-- ---------------------------------------------------------------------
+
+-- Traduz a causa raiz para uma frase que o passageiro entende
+create function motivo_para_cliente(p_categoria text)
+returns text
+language sql immutable
+as $$
+    select case p_categoria
+        when 'Técnico'               then 'manutenção na aeronave'
+        when 'Meteorologia'          then 'condições do tempo'
+        when 'Tráfego aéreo'         then 'restrição do controle de tráfego aéreo'
+        when 'Tripulação'            then 'ajuste na escala da tripulação'
+        when 'Passageiros e bagagem' then 'embarque de passageiros e bagagens'
+        when 'Solo'                  then 'serviços de solo no aeroporto'
+        when 'Aeroporto'             then 'infraestrutura do aeroporto'
+        else 'questões operacionais'
+    end
+$$;
+
+create function meus_voos(p_token uuid)
+returns jsonb
+language plpgsql stable security definer set search_path = public
+as $$
+declare
+    v_p passageiro;
+begin
+    v_p := passageiro_da_sessao(p_token);
+    return jsonb_build_object('agora', agora(), 'voos', coalesce((
+        select jsonb_agg(jsonb_build_object(
+                 'fase', r.fase,
+                 'voo_id', r.id,
+                 'numero', r.numero,
+                 'origem', r.origem,
+                 'destino', r.destino,
+                 'partida_prevista', r.partida_prevista,
+                 'chegada_prevista', r.chegada_prevista,
+                 'atraso', r.atraso_total,
+                 'partida_estimada', r.partida_estimada,
+                 'chegada_estimada', r.chegada_estimada,
+                 'motivo', mot.frase)
+               order by r.partida_prevista)
+          from passageiro_voo pv
+          join vw_voo_resumo r on r.id = pv.voo_id
+          left join lateral (
+               -- causa principal: a raiz que mais somou minutos neste voo
+               select case
+                        when bool_or(d.tipo = 'CONSEQUENTE') and not bool_or(d.tipo = 'ORIGINADOR' and d.raiz_id = d.id)
+                          then 'O avião deste voo chega de um voo anterior que atrasou por '
+                               || motivo_para_cliente(max(d.causa_raiz_categoria)) || '.'
+                        else 'Motivo: ' || motivo_para_cliente(max(d.causa_raiz_categoria)) || '.'
+                      end as frase
+                 from vw_atraso_detalhado d
+                where d.voo_id = r.id
+                group by d.raiz_id
+                order by sum(d.minutos) desc
+                limit 1) mot on true
+         where pv.passageiro_id = v_p.id), '[]'::jsonb));
+end;
+$$;
+
+-- Passageiro passa a acompanhar um voo pelo número (usa a próxima data disponível)
+create function acompanhar_voo(p_token uuid, p_numero text)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+    v_p   passageiro;
+    v_voo int;
+begin
+    v_p := passageiro_da_sessao(p_token);
+    select id into v_voo from voo
+     where numero = upper(replace(trim(p_numero), ' ', ''))
+     order by (partida_prevista < now()::date), abs(extract(epoch from partida_prevista - now()))
+     limit 1;
+    if v_voo is null then
+        raise exception 'Não encontramos o voo %. Confira o número no seu cartão de embarque.', upper(trim(p_numero));
+    end if;
+    insert into passageiro_voo values (v_p.id, v_voo) on conflict do nothing;
+end;
+$$;
+
+create function deixar_de_acompanhar(p_token uuid, p_voo_id int)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+    v_p passageiro;
+begin
+    v_p := passageiro_da_sessao(p_token);
+    delete from passageiro_voo where passageiro_id = v_p.id and voo_id = p_voo_id;
+end;
+$$;
+
+-- ---------------------------------------------------------------------
+-- ÁREA DO FUNCIONÁRIO: as mesmas ações de antes, agora exigindo login
+-- ---------------------------------------------------------------------
+create function op_registrar_atraso(p_token uuid, p_voo_id int, p_motivo text, p_minutos int, p_observacao text default null)
+returns int
+language plpgsql security definer set search_path = public
+as $$
+declare
+    v_f  funcionario;
+    v_id int;
+begin
+    v_f := funcionario_da_sessao(p_token);
+    if (select fase from vw_voo_resumo where id = p_voo_id) in ('EM_VOO', 'POUSOU') then
+        raise exception 'Este voo já decolou. Registre o atraso em um voo que ainda não partiu.';
+    end if;
+    v_id := registrar_atraso(p_voo_id, p_motivo, p_minutos, p_observacao);
+    update atraso set registrado_por = v_f.nome || ' (' || v_f.codigo || ')' where id = v_id;
+    return v_id;
+end;
+$$;
+
+create function op_remover_atraso(p_token uuid, p_atraso_id int)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+    perform funcionario_da_sessao(p_token);
+    perform remover_atraso(p_atraso_id);
+end;
+$$;
+
+create function op_registrar_parecer(p_token uuid, p_atraso_id int, p_area text, p_motivo text, p_justificativa text default null)
+returns int
+language plpgsql security definer set search_path = public
+as $$
+declare
+    v_f  funcionario;
+    v_id int;
+begin
+    v_f := funcionario_da_sessao(p_token);
+    v_id := registrar_parecer(p_atraso_id, p_area, p_motivo, p_justificativa);
+    update parecer set funcionario = v_f.nome where id = v_id;
+    return v_id;
+end;
+$$;
+
+create function op_validar_atraso(p_token uuid, p_atraso_id int, p_motivo_final text)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+    perform funcionario_da_sessao(p_token);
+    perform validar_atraso(p_atraso_id, p_motivo_final);
+end;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SIMULAÇÃO DO DIA
+-- Os problemas do dia ficam programados em evento_simulado e só
+-- "acontecem" quando o relógio chega no horário deles. Assim a
+-- demonstração mostra o atraso surgindo e se propagando ao vivo.
+-- ---------------------------------------------------------------------
+create table evento_simulado (
+    id          serial primary key,
+    acontece_em timestamp not null,
+    tipo        text not null check (tipo in ('ATRASO', 'PARECER', 'VALIDACAO')),
+    voo_numero  text not null,             -- voo onde o problema acontece
+    motivo      text not null references motivo(codigo),
+    minutos     int,                       -- só para ATRASO
+    area        text,                      -- só para PARECER
+    texto       text,                      -- observação ou justificativa
+    autor       text not null,
+    aplicado    boolean not null default false
+);
+
+-- Aplica os eventos cujo horário já chegou. Devolve o que aconteceu.
+create function aplicar_eventos()
+returns jsonb
+language plpgsql security definer set search_path = public
+as $$
+declare
+    e      record;
+    v_voo  int;
+    v_orig int;
+    v_id   int;
+    v_log  jsonb := '[]'::jsonb;
+begin
+    for e in
+        select * from evento_simulado
+         where not aplicado and acontece_em <= agora()
+         order by acontece_em, id
+    loop
+        select id into v_voo from voo where numero = e.voo_numero;
+        select id into v_orig from atraso
+         where voo_id = v_voo and tipo = 'ORIGINADOR' and motivo_codigo <> '93'
+         order by id desc limit 1;
+
+        if e.tipo = 'ATRASO' then
+            v_id := registrar_atraso(v_voo, e.motivo, e.minutos, e.texto);
+            update atraso set registrado_em = e.acontece_em, registrado_por = e.autor where id = v_id;
+            v_log := v_log || jsonb_build_object('hora', to_char(e.acontece_em, 'HH24:MI'),
+                     'texto', e.voo_numero || ' atrasou ' || e.minutos || ' min: ' ||
+                              (select descricao from motivo where codigo = e.motivo));
+        elsif e.tipo = 'PARECER' and v_orig is not null then
+            v_id := registrar_parecer(v_orig, e.area, e.motivo, e.texto);
+            update parecer set criado_em = e.acontece_em, funcionario = e.autor where id = v_id;
+            v_log := v_log || jsonb_build_object('hora', to_char(e.acontece_em, 'HH24:MI'),
+                     'texto', e.area || ' deu parecer sobre o atraso do ' || e.voo_numero);
+        elsif e.tipo = 'VALIDACAO' and v_orig is not null then
+            perform validar_atraso(v_orig, e.motivo);
+            v_log := v_log || jsonb_build_object('hora', to_char(e.acontece_em, 'HH24:MI'),
+                     'texto', 'Causa oficial do atraso do ' || e.voo_numero || ' validada');
+        end if;
+
+        update evento_simulado set aplicado = true where id = e.id;
+    end loop;
+    return v_log;
+end;
+$$;
+
+-- Avança o relógio (somente funcionários)
+create function avancar_relogio(p_token uuid, p_minutos int)
+returns jsonb
+language plpgsql security definer set search_path = public
+as $$
+declare
+    v_log jsonb;
+begin
+    perform funcionario_da_sessao(p_token);
+    if p_minutos not between 1 and 240 then
+        raise exception 'Avance entre 1 e 240 minutos por vez.';
+    end if;
+    update relogio set agora = agora + make_interval(mins => p_minutos) where id = 1;
+    v_log := aplicar_eventos();
+    return jsonb_build_object('agora', agora(), 'eventos', v_log);
+end;
+$$;
+
+-- Volta o dia para 06:00 e desfaz tudo o que aconteceu (somente funcionários)
+create function reiniciar_simulacao(p_token uuid)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+    perform funcionario_da_sessao(p_token);
+    delete from parecer where true;
+    delete from atraso where true;
+    update evento_simulado set aplicado = false where true;
+    update relogio set agora = '2026-10-05 06:00' where id = 1;
+end;
+$$;
 
 -- ---------------------------------------------------------------------
 -- SEGURANÇA (Supabase)
@@ -367,14 +804,38 @@ create policy leitura_publica on voo          for select using (true);
 create policy leitura_publica on atraso       for select using (true);
 create policy leitura_publica on parecer      for select using (true);
 
+alter table funcionario    enable row level security;   -- sem política: ninguém lê direto
+alter table passageiro     enable row level security;
+alter table sessao         enable row level security;
+alter table passageiro_voo enable row level security;
+alter table evento_simulado enable row level security;   -- o futuro não é visível
+alter table relogio        enable row level security;
+create policy leitura_publica on relogio for select using (true);
+
 grant usage on schema public to anon, authenticated;
 grant select on all tables in schema public to anon, authenticated;
-grant execute on function registrar_atraso(int, text, int, text) to anon, authenticated;
-grant execute on function remover_atraso(int)                    to anon, authenticated;
-grant execute on function registrar_parecer(int, text, text, text) to anon, authenticated;
-grant execute on function validar_atraso(int, text)              to anon, authenticated;
-grant execute on function cadeia_atraso(int)                     to anon, authenticated;
-revoke execute on function propagar_atrasos(text, date) from public, anon, authenticated;
+revoke all on funcionario, passageiro, sessao, passageiro_voo, evento_simulado from anon, authenticated;
+
+-- funções internas: só o próprio banco usa
+revoke execute on all functions in schema public from public, anon, authenticated;
+
+-- o que o site pode chamar
+grant execute on function cadeia_atraso(int)                               to anon, authenticated;
+grant execute on function cadastrar_passageiro(text, text, text)           to anon, authenticated;
+grant execute on function entrar_passageiro(text, text)                    to anon, authenticated;
+grant execute on function entrar_funcionario(text, text)                   to anon, authenticated;
+grant execute on function sessao_atual(uuid)                               to anon, authenticated;
+grant execute on function sair(uuid)                                       to anon, authenticated;
+grant execute on function meus_voos(uuid)                                  to anon, authenticated;
+grant execute on function acompanhar_voo(uuid, text)                       to anon, authenticated;
+grant execute on function deixar_de_acompanhar(uuid, int)                 to anon, authenticated;
+grant execute on function op_registrar_atraso(uuid, int, text, int, text)  to anon, authenticated;
+grant execute on function op_remover_atraso(uuid, int)                     to anon, authenticated;
+grant execute on function op_registrar_parecer(uuid, int, text, text, text) to anon, authenticated;
+grant execute on function op_validar_atraso(uuid, int, text)               to anon, authenticated;
+grant execute on function agora()                                          to anon, authenticated;
+grant execute on function avancar_relogio(uuid, int)                       to anon, authenticated;
+grant execute on function reiniciar_simulacao(uuid)                        to anon, authenticated;
 
 -- As views respeitam as permissões de quem consulta
 alter view vw_atraso_detalhado       set (security_invoker = true);

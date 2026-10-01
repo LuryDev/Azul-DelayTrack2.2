@@ -4,7 +4,7 @@
 -- =====================================================================
 
 -- Limpa os dados anteriores (permite rodar este script mais de uma vez)
-truncate parecer, atraso, voo, aeronave, motivo restart identity cascade;
+truncate passageiro_voo, sessao, passageiro, funcionario, parecer, atraso, voo, aeronave, motivo restart identity cascade;
 
 -- Motivos (códigos inspirados na tabela padrão de atrasos da IATA)
 insert into motivo (codigo, descricao, categoria, area_responsavel, reativo) values
@@ -41,17 +41,37 @@ insert into voo (numero, matricula, origem, destino, partida_prevista, chegada_p
 ('AD3302', 'PR-COR', 'VCP', 'UDI', '2026-10-05 10:35', '2026-10-05 11:45'),
 ('AD3303', 'PR-COR', 'UDI', 'VCP', '2026-10-05 12:25', '2026-10-05 13:35');
 
--- Registros feitos "no calor da crise" (a propagação acontece sozinha)
-select registrar_atraso((select id from voo where numero = 'AD4100'), '41', 55, 'Pane no sistema de freios detectada no pré-voo');
-select registrar_atraso((select id from voo where numero = 'AD4102'), '18', 10, 'Esteira de bagagem parada em CNF');
-select registrar_atraso((select id from voo where numero = 'AD2200'), '71', 30, 'Nevoeiro em CGH, pista fechada');
-select registrar_atraso((select id from voo where numero = 'AD3301'), '63', 25, 'Comandante chegou atrasado ao aeroporto');
-select registrar_atraso((select id from voo where numero = 'AD3302'), '81', 15, 'Fluxo restrito pelo controle de tráfego');
+-- ---------------------------------------------------------------------
+-- Problemas programados do dia: cada um acontece quando o relógio da
+-- simulação chega no horário indicado (a propagação é automática).
+-- ---------------------------------------------------------------------
+truncate evento_simulado restart identity;
+update relogio set agora = '2026-10-05 06:00' where id = 1;
 
--- Visões diferentes de cada área sobre a pane do AD4100
-select registrar_parecer(a.id, 'CCO',        '93', 'Aeronave chegou tarde da pernoite')         from atraso a join voo v on v.id = a.voo_id where v.numero = 'AD4100' and a.tipo = 'ORIGINADOR';
-select registrar_parecer(a.id, 'Piloto',     '41', 'Alerta de freio no painel durante o check')  from atraso a join voo v on v.id = a.voo_id where v.numero = 'AD4100' and a.tipo = 'ORIGINADOR';
-select registrar_parecer(a.id, 'Manutenção', '41', 'Troca de sensor do freio número 2')          from atraso a join voo v on v.id = a.voo_id where v.numero = 'AD4100' and a.tipo = 'ORIGINADOR';
+insert into evento_simulado (acontece_em, tipo, voo_numero, motivo, minutos, area, texto, autor) values
+('2026-10-05 06:15', 'ATRASO',    'AD2200', '71', 30, null,         'Nevoeiro em CGH, pista fechada',                 'Aeroporto CGH (registro rápido)'),
+('2026-10-05 06:40', 'ATRASO',    'AD4100', '41', 55, null,         'Pane no sistema de freios detectada no pré-voo', 'Aeroporto GRU (registro rápido)'),
+('2026-10-05 07:30', 'PARECER',   'AD4100', '93', null, 'CCO',        'Aeronave chegou tarde da pernoite',            'Marina Costa'),
+('2026-10-05 08:00', 'PARECER',   'AD4100', '41', null, 'Piloto',     'Alerta de freio no painel durante o check',    'Cmte. Rafael Lima'),
+('2026-10-05 08:30', 'PARECER',   'AD4100', '41', null, 'Manutenção', 'Troca de sensor do freio número 2',            'Paula Mendes'),
+('2026-10-05 08:45', 'ATRASO',    'AD3301', '63', 25, null,         'Comandante chegou atrasado ao aeroporto',        'Aeroporto RAO (registro rápido)'),
+('2026-10-05 09:00', 'VALIDACAO', 'AD4100', '41', null, null,         null,                                           'Marina Costa'),
+('2026-10-05 10:10', 'ATRASO',    'AD3302', '81', 15, null,         'Fluxo restrito pelo controle de tráfego',        'Aeroporto VCP (registro rápido)'),
+('2026-10-05 10:45', 'ATRASO',    'AD4102', '18', 10, null,         'Esteira de bagagem parada em CNF',               'Aeroporto CNF (registro rápido)');
 
--- Causa oficial definida após a análise
-select validar_atraso(a.id, '41') from atraso a join voo v on v.id = a.voo_id where v.numero = 'AD4100' and a.tipo = 'ORIGINADOR';
+-- ---------------------------------------------------------------------
+-- Contas de demonstração
+-- ---------------------------------------------------------------------
+-- Funcionários (entram com código de identificação + senha "alcar2026")
+insert into funcionario (codigo, nome, area, senha_hash) values
+('AL-1001', 'Marina Costa',   'CCO',        extensions.crypt('alcar2026', extensions.gen_salt('bf'))),
+('AL-2002', 'Ricardo Nunes',  'Aeroporto',  extensions.crypt('alcar2026', extensions.gen_salt('bf'))),
+('AL-3003', 'Paula Mendes',   'Manutenção', extensions.crypt('alcar2026', extensions.gen_salt('bf')));
+
+-- Passageira (entra com e-mail + senha "senha123")
+insert into passageiro (nome, email, senha_hash) values
+('Ana Ribeiro', 'ana@exemplo.com', extensions.crypt('senha123', extensions.gen_salt('bf')));
+
+-- Ana acompanha um voo que vai atrasar pela cadeia da pane e um voo que sai no horário
+insert into passageiro_voo (passageiro_id, voo_id)
+select 1, id from voo where numero in ('AD4102', 'AD2203');
