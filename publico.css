@@ -20,7 +20,7 @@
   --raio: 14px;
 }
 
-html { font-size: 106.25%; }   /* 17px */
+html { font-size: 116.25%; }   /* 17px */
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }

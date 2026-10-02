@@ -19,7 +19,7 @@
 }
 
 /* tamanho base do texto: tudo que usa rem cresce junto */
-html { font-size: 112.5%; }   /* 18px */
+html { font-size: 127.5%; }   /* 18px */
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
