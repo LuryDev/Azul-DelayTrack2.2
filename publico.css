@@ -20,6 +20,8 @@
   --raio: 14px;
 }
 
+html { font-size: 106.25%; }   /* 17px */
+
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
@@ -27,7 +29,7 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   font-family: 'Figtree', system-ui, sans-serif;
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.5;
   color: var(--tinta);
   background: var(--nevoa);

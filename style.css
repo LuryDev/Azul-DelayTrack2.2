@@ -18,13 +18,16 @@
   --sombra: 0 1px 2px rgba(11, 37, 69, .06), 0 4px 14px rgba(11, 37, 69, .05);
 }
 
+/* tamanho base do texto: tudo que usa rem cresce junto */
+html { font-size: 112.5%; }   /* 18px */
+
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
 body {
   margin: 0;
   font-family: 'Figtree', system-ui, sans-serif;
-  font-size: 15px;
+  font-size: 1rem;
   line-height: 1.5;
   color: var(--texto);
   background: var(--fundo);
@@ -63,7 +66,7 @@ small { font-size: .8rem; }
 
 /* relógio da simulação */
 .relogio { display: flex; align-items: flex-end; gap: 12px; }
-.relogio span { display: block; font-size: .75rem; color: #9CC9C2; }
+.relogio span { display: block; font-size: .78rem; color: #9CC9C2; }
 .relogio strong { display: block; font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--laranja); }
 .relogio-botoes { display: flex; gap: 6px; }
 .relogio-botoes button {
@@ -75,7 +78,7 @@ small { font-size: .8rem; }
 .relogio-botoes .play.ativo { background: transparent; color: var(--laranja); }
 .usuario { display: flex; align-items: center; gap: 12px; padding-left: 24px; border-left: 1px solid #2c5a61; }
 .usuario strong { display: block; font-size: .9rem; }
-.usuario span { display: block; font-size: .75rem; color: #9CC9C2; }
+.usuario span { display: block; font-size: .78rem; color: #9CC9C2; }
 .sair { background: none; border: 1px solid #3d6d74; color: #fff; border-radius: 8px; padding: 7px 12px; font: inherit; font-size: .82rem; cursor: pointer; }
 .sair:hover { border-color: var(--laranja); }
 
@@ -155,10 +158,10 @@ input:focus, select:focus { outline: 2px solid var(--azul); outline-offset: 0; b
 /* =====================================================================
    1. VOOS DE HOJE
    ===================================================================== */
-.layout-voos { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+.layout-voos { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 20px; align-items: start; }
 .layout-voos > .cartao { margin-bottom: 0; }
 
-.legenda { display: flex; gap: 18px; flex-wrap: wrap; font-size: .8rem; color: var(--texto-suave); margin-bottom: 8px; }
+.legenda { display: flex; gap: 18px; flex-wrap: wrap; font-size: .85rem; color: var(--texto-suave); margin-bottom: 8px; }
 .legenda span { display: flex; align-items: center; gap: 6px; }
 .cor { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 .cor.herdado { background: var(--laranja); }
@@ -169,7 +172,7 @@ input:focus, select:focus { outline: 2px solid var(--azul); outline-offset: 0; b
 .aeronave h3 { font-size: .95rem; margin-bottom: 10px; }
 .aeronave h3 small { font-family: 'Figtree', sans-serif; font-weight: 400; color: var(--texto-suave); margin-left: 6px; }
 
-.voos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.voos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
 .voo {
   width: 100%;
   display: flex;
@@ -190,12 +193,12 @@ input:focus, select:focus { outline: 2px solid var(--azul); outline-offset: 0; b
 .voo.com-problema { border-left-color: var(--vermelho); }
 .voo[aria-pressed="true"] { border-color: var(--azul); box-shadow: 0 0 0 2px var(--azul-claro); }
 .voo-numero { font-weight: 700; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 2px 6px; }
-.fase { font-size: .66rem; font-weight: 700; padding: 1px 7px; border-radius: 99px; white-space: nowrap; }
+.fase { font-size: .7rem; font-weight: 700; padding: 1px 7px; border-radius: 99px; white-space: nowrap; }
 .fase-embarque { background: var(--laranja-claro); color: #8a5a10; }
 .fase-em_voo { background: var(--azul-claro); color: var(--azul); }
 .fase-pousou { background: #e7ecec; color: var(--texto-suave); }
 .voo.pousou { background: #f7f9f9; }
-.voo-rota, .voo-hora { font-size: .8rem; color: var(--texto-suave); }
+.voo-rota, .voo-hora { font-size: .85rem; color: var(--texto-suave); }
 .voo-hora s { margin-right: 2px; }
 .voo-status { margin-top: 6px; font-size: .85rem; font-weight: 600; color: var(--verde); }
 .voo.herdou .voo-status { color: #8a5a10; }
@@ -227,7 +230,7 @@ input:focus, select:focus { outline: 2px solid var(--azul); outline-offset: 0; b
 .cascata { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .cascata li { display: flex; flex-direction: column; background: var(--fundo); border-radius: 8px; padding: 6px 10px; font-size: .82rem; }
 .cascata li span { font-weight: 600; }
-.cascata li small { color: var(--texto-suave); font-size: .75rem; }
+.cascata li small { color: var(--texto-suave); font-size: .8rem; }
 .cascata li.seta { background: none; padding: 0; color: var(--texto-suave); }
 .cascata li.atual { background: var(--azul-claro); outline: 2px solid var(--azul); }
 
@@ -237,7 +240,7 @@ input:focus, select:focus { outline: 2px solid var(--azul); outline-offset: 0; b
 /* =====================================================================
    2. CONFIRMAR MOTIVOS
    ===================================================================== */
-.lista-cartoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px; margin-bottom: 20px; }
+.lista-cartoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px; margin-bottom: 20px; }
 .lista-cartoes > .cartao { margin-bottom: 0; }
 
 .pendente header h3 { font-size: 1.1rem; }
@@ -301,7 +304,7 @@ input:focus, select:focus { outline: 2px solid var(--azul); outline-offset: 0; b
 .toast.erro { background: var(--vermelho); }
 
 /* ---------- Responsivo ---------- */
-@media (max-width: 1000px) {
+@media (max-width: 1100px) {
   .layout-voos { grid-template-columns: 1fr; }
   .detalhe { position: static; }
   .grade-2 { grid-template-columns: 1fr; }
@@ -312,6 +315,7 @@ input:focus, select:focus { outline: 2px solid var(--azul); outline-offset: 0; b
   main { padding: 16px 16px 48px; }
   .topo, .abas { padding-left: 16px; padding-right: 16px; }
   .lista-cartoes { grid-template-columns: 1fr; }
+  html { font-size: 106.25%; }   /* no celular, um pouco menor */
   .linha { grid-template-columns: 1fr; }
   .tela-topo h2 { font-size: 1.3rem; }
   .abas { gap: 0; }
