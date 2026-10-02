@@ -1,31 +1,19 @@
-// =====================================================================
-//  DelayTrack · área da operação (funcionários)
-//  Três telas, cada uma com uma tarefa:
-//    Voos de hoje       -> ver o que está atrasado, por quê, e informar atrasos
-//    Confirmar motivos  -> transformar o motivo provisório em oficial
-//    Resultados do dia  -> o que causou os atrasos de verdade
-// =====================================================================
-
-// A conexão com o banco, o login e a função consulta() ficam em sessao.js
-let usuario = null;   // funcionário logado
+let usuario = null;
 
 const AREAS = ['CCO', 'Piloto', 'Manutenção', 'Aeroporto', 'Tráfego aéreo', 'Tripulação'];
 
 const estado = {
-  data: null,          // dia da simulação (AAAA-MM-DD)
-  agora: null,         // horário simulado
+  data: null,
+  agora: null,
   motivos: [],
   aeronaves: [],
-  voos: [],            // vw_voo_resumo
-  atrasos: [],         // vw_atraso_detalhado
+  voos: [],
+  atrasos: [],
   pareceres: [],
   vooSelecionado: null,
-  formAberto: false,   // formulário "informar atraso" aberto no detalhe
+  formAberto: false,
 };
 
-// ---------------------------------------------------------------------
-// Utilitários
-// ---------------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
 
 function esc(texto) {
@@ -47,7 +35,6 @@ function motivo(codigo) {
   return estado.motivos.find((m) => m.codigo === codigo) || { codigo, descricao: codigo };
 }
 
-// descrição sem o código técnico, com a primeira letra minúscula para usar no meio da frase
 const emFrase = (texto) => texto.charAt(0).toLowerCase() + texto.slice(1);
 
 let timerToast;
@@ -60,7 +47,6 @@ function toast(msg, erro = false) {
   timerToast = setTimeout(() => (t.hidden = true), 4500);
 }
 
-// opções de motivo agrupadas por categoria (sem o motivo automático "herdado")
 function opcoesMotivo(selecionado, incluirReativo = false) {
   const grupos = {};
   estado.motivos
@@ -72,9 +58,6 @@ function opcoesMotivo(selecionado, incluirReativo = false) {
     </optgroup>`).join('');
 }
 
-// ---------------------------------------------------------------------
-// Navegação entre as telas (usa o endereço #voos, #confirmar, #resultados)
-// ---------------------------------------------------------------------
 function mostrarTela() {
   const nome = (location.hash || '#voos').slice(1);
   const valida = ['voos', 'confirmar', 'resultados'].includes(nome) ? nome : 'voos';
@@ -86,9 +69,6 @@ function mostrarTela() {
 }
 window.addEventListener('hashchange', () => { mostrarTela(); window.scrollTo(0, 0); });
 
-// ---------------------------------------------------------------------
-// Carregamento
-// ---------------------------------------------------------------------
 async function iniciar() {
   desenharMarcas();
   mostrarTela();
@@ -148,9 +128,6 @@ async function recarregar() {
   renderResultados(sintoma, raiz);
 }
 
-// ---------------------------------------------------------------------
-// Relógio da simulação
-// ---------------------------------------------------------------------
 const FIM_DO_DIA = '15:00';
 let reproduzindo = null;
 let avancando = false;
@@ -182,7 +159,6 @@ function pararReproducao() {
 function configurarRelogio() {
   document.querySelectorAll('[data-avancar]').forEach((b) => b.addEventListener('click', () => avancar(Number(b.dataset.avancar))));
 
-  // ▶ o horário anda 5 minutos a cada 1,5 segundo
   $('btn-play').addEventListener('click', () => {
     if (reproduzindo) { pararReproducao(); return; }
     voarAviao($('btn-play'));
@@ -205,12 +181,9 @@ function configurarRelogio() {
   });
 }
 
-// =====================================================================
-// 1. VOOS DE HOJE
-// =====================================================================
 const originadores = () => estado.atrasos.filter((a) => a.tipo === 'ORIGINADOR');
 
-const atrasoAnterior = new Map();   // para destacar voos cujo atraso mudou
+const atrasoAnterior = new Map();
 
 function renderVoos() {
   const voos = estado.voos;
@@ -365,7 +338,6 @@ function cascatas(raizes, vooAtual) {
   return blocos.length ? `<h4>Efeito cascata</h4>${blocos.join('')}` : '';
 }
 
-// O caminho de um problema: do voo onde começou até o último voo afetado
 function blocoCascata(raizId, vooAtual) {
   const cadeia = estado.atrasos.filter((a) => a.raiz_id === raizId);
   if (cadeia.length < 2) return '';
@@ -452,9 +424,6 @@ async function desfazer(id) {
   } catch (err) { toast(err.message, true); }
 }
 
-// =====================================================================
-// 2. CONFIRMAR MOTIVOS
-// =====================================================================
 function renderConfirmar() {
   const lista = originadores();
   const pendentes = lista.filter((a) => a.status === 'PROVISORIO');
@@ -482,7 +451,6 @@ function cartaoPendente(a) {
   const minutosCadeia = afetados.reduce((s, x) => s + x.minutos, 0);
   const pareceres = estado.pareceres.filter((p) => p.atraso_id === a.id);
 
-  // motivo mais apontado pelas áreas vira a sugestão
   const votos = {};
   pareceres.forEach((p) => (votos[p.motivo_codigo] = (votos[p.motivo_codigo] || 0) + 1));
   const sugestao = Object.entries(votos).sort((x, y) => y[1] - x[1])[0]?.[0];
@@ -561,9 +529,6 @@ async function salvarParecer(e) {
   } catch (err) { toast(err.message, true); }
 }
 
-// =====================================================================
-// 3. RESULTADOS DO DIA
-// =====================================================================
 function barras(lista, rotulo, classe, maximo) {
   if (!lista.length) return '<p class="vazio">Nenhum atraso neste dia.</p>';
   return `<ul class="barras">${lista.map((item) => `

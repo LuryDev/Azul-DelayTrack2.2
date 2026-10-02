@@ -1,12 +1,7 @@
-// =====================================================================
-//  DelayTrack · página de login
-// =====================================================================
-
 desenharMarcas();
 
 const DESTINO = { PASSAGEIRO: 'passageiro.html', FUNCIONARIO: 'operacao.html' };
 
-// ---------- abas Passageiro / Funcionário ----------
 function mostrarAba(qual) {
   const func = qual === 'funcionario';
   document.getElementById('aba-passageiro').setAttribute('aria-selected', String(!func));
@@ -20,7 +15,6 @@ function mostrarAba(qual) {
 document.getElementById('aba-passageiro').addEventListener('click', () => mostrarAba('passageiro'));
 document.getElementById('aba-funcionario').addEventListener('click', () => mostrarAba('funcionario'));
 
-// ---------- entrar / criar conta ----------
 document.querySelectorAll('[data-ir]').forEach((b) => {
   b.addEventListener('click', () => {
     const cadastro = b.dataset.ir === 'cadastro';
@@ -41,7 +35,7 @@ function enviar(form, chamada, tipo) {
       const dados = Object.fromEntries(new FormData(form));
       const token = await consulta(chamada(dados));
       Sessao.salvar(token);
-      await voarAviao(botao);          // o aviãozinho decola antes de abrir a próxima página
+      await voarAviao(botao);
       location.replace(DESTINO[tipo]);
     } catch (err) {
       erro.textContent = err.message;
@@ -58,7 +52,6 @@ enviar(document.getElementById('form-cadastro'),
 enviar(document.getElementById('form-funcionario'),
   (d) => db.rpc('entrar_funcionario', { p_codigo: d.codigo, p_senha: d.senha }), 'FUNCIONARIO');
 
-// ---------- ao abrir ----------
 (async () => {
   if (!configurado) {
     document.getElementById('aviso-config').hidden = false;
@@ -66,7 +59,6 @@ enviar(document.getElementById('form-funcionario'),
   }
   if (location.hash === '#funcionario') mostrarAba('funcionario');
 
-  // já está logado? vai direto para a página certa
   const token = Sessao.token();
   if (token) {
     const { data } = await db.rpc('sessao_atual', { p_token: token });

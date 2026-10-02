@@ -1,16 +1,3 @@
--- =====================================================================
---  Sistema de Definição de Motivos de Atrasos
---  Banco de dados (PostgreSQL / Supabase)
---
---  Ideia central:
---    * ORIGINADOR  -> o evento que começou o problema (pane, clima...)
---    * CONSEQUENTE -> atraso herdado do voo anterior da mesma aeronave
---  Cada consequente aponta para o seu "atraso pai". Seguindo essa
---  cadeia até o topo encontramos a CAUSA RAIZ, sem reclassificação
---  manual.
--- =====================================================================
-
--- Limpa tudo (permite rodar o script de novo sem erro)
 drop function if exists cadastrar_passageiro, entrar_passageiro, entrar_funcionario, sessao_atual,
                         sair, meus_voos, acompanhar_voo, deixar_de_acompanhar, funcionario_da_sessao,
                         passageiro_da_sessao, motivo_para_cliente, op_registrar_atraso, op_remover_atraso,
@@ -34,12 +21,6 @@ drop table    if exists motivo   cascade;
 drop table    if exists aeronave cascade;
 drop table    if exists configuracao cascade;
 
--- ---------------------------------------------------------------------
--- TABELAS
--- ---------------------------------------------------------------------
-
--- Relógio da simulação: o "agora" do sistema. Na demonstração ele é
--- avançado pela tela da operação; em produção seria simplesmente now().
 create table relogio (
     id    int primary key default 1 check (id = 1),
     agora timestamp not null
@@ -55,26 +36,25 @@ create table configuracao (
     chave text primary key,
     valor int  not null
 );
--- Tempo mínimo de solo entre um pouso e a próxima decolagem (minutos).
--- Tudo que sobrar além disso é "folga" e absorve parte do atraso.
+
 insert into configuracao values ('tempo_minimo_solo', 30);
 
 create table aeronave (
-    matricula text primary key,          -- ex.: PR-ABC
+    matricula text primary key,
     modelo    text not null
 );
 
 create table motivo (
-    codigo           text primary key,   -- inspirado nos códigos IATA
+    codigo           text primary key,
     descricao        text not null,
-    categoria        text not null,      -- Técnico, Meteorologia, Solo...
-    area_responsavel text not null,      -- área dona do problema
-    reativo          boolean not null default false  -- true = motivo de atraso herdado
+    categoria        text not null,
+    area_responsavel text not null,
+    reativo          boolean not null default false
 );
 
 create table voo (
     id               serial primary key,
-    numero           text not null,      -- ex.: AD4102
+    numero           text not null,
     matricula        text not null references aeronave(matricula),
     origem           char(3) not null,
     destino          char(3) not null,
@@ -94,33 +74,25 @@ create table atraso (
     status        text not null default 'PROVISORIO'
                   check (status in ('PROVISORIO', 'VALIDADO')),
     observacao    text,
-    registrado_por text,                 -- funcionário que registrou
+    registrado_por text,
     registrado_em timestamp not null default now(),
-    -- regra de integridade: originador não tem pai, consequente sempre tem
+
     check ((tipo = 'ORIGINADOR'  and atraso_pai_id is null) or
            (tipo = 'CONSEQUENTE' and atraso_pai_id is not null))
 );
 create index ix_atraso_voo on atraso (voo_id);
 create index ix_atraso_pai on atraso (atraso_pai_id);
 
--- Visão de cada área (CCO, piloto, manutenção...) sobre um atraso
 create table parecer (
     id            serial primary key,
     atraso_id     int  not null references atraso(id) on delete cascade,
     area          text not null,
     motivo_codigo text not null references motivo(codigo),
     justificativa text,
-    funcionario   text,                  -- quem registrou o parecer
+    funcionario   text,
     criado_em     timestamp not null default now()
 );
 
--- ---------------------------------------------------------------------
--- PROPAGAÇÃO AUTOMÁTICA
--- Percorre os voos da aeronave no dia, em ordem, e recria os atrasos
--- consequentes. Exemplo:
---   voo anterior chegou 40 min atrasado, folga no solo = 10 min
---   -> próximo voo herda 30 min, ligados ao atraso do voo anterior.
--- ---------------------------------------------------------------------
 create function propagar_atrasos(p_matricula text, p_data date)
 returns void
 language plpgsql
@@ -130,9 +102,9 @@ as $$
 declare
     v_solo      int;
     v_voo       record;
-    v_ant_id      int;           -- voo anterior da mesma aeronave
+    v_ant_id      int;
     v_ant_chegada timestamp;
-    v_atraso_ant  int := 0;      -- atraso de chegada do voo anterior
+    v_atraso_ant  int := 0;
     v_folga     int;
     v_herdado   int;
     v_restante  int;
@@ -148,7 +120,7 @@ begin
            and partida_prevista::date = p_data
          order by partida_prevista
     loop
-        -- apaga os consequentes antigos deste voo (serão recalculados)
+
         delete from atraso where voo_id = v_voo.id and tipo = 'CONSEQUENTE';
 
         v_herdado := 0;
@@ -158,7 +130,6 @@ begin
                 - v_solo);
             v_herdado := greatest(0, v_atraso_ant - v_folga);
 
-            -- distribui os minutos herdados entre os atrasos do voo anterior
             v_restante := v_herdado;
             for v_pai in
                 select id, minutos from atraso
@@ -174,11 +145,9 @@ begin
             end loop;
         end if;
 
-        -- atrasos novos que nasceram neste voo
         select coalesce(sum(minutos), 0) into v_orig
           from atraso where voo_id = v_voo.id and tipo = 'ORIGINADOR';
 
-        -- supõe tempo de voo mantido: atraso de chegada = atraso de partida
         v_atraso_ant := v_herdado + v_orig;
         v_ant_id      := v_voo.id;
         v_ant_chegada := v_voo.chegada_prevista;
@@ -186,11 +155,6 @@ begin
 end;
 $$;
 
--- ---------------------------------------------------------------------
--- FUNÇÕES CHAMADAS PELO SITE (supabase.rpc)
--- ---------------------------------------------------------------------
-
--- Registro rápido feito pelo aeroporto no momento da crise
 create function registrar_atraso(p_voo_id int, p_motivo text, p_minutos int, p_observacao text default null)
 returns int
 language plpgsql
@@ -218,7 +182,6 @@ begin
 end;
 $$;
 
--- Remove um atraso originador (ex.: registrado por engano) e recalcula
 create function remover_atraso(p_atraso_id int)
 returns void
 language plpgsql
@@ -240,7 +203,6 @@ begin
 end;
 $$;
 
--- Cada área registra sua visão sobre um atraso
 create function registrar_parecer(p_atraso_id int, p_area text, p_motivo text, p_justificativa text default null)
 returns int
 language plpgsql
@@ -257,9 +219,6 @@ begin
 end;
 $$;
 
--- Define a causa oficial de um originador. Os consequentes da cadeia
--- passam a apontar para a causa correta automaticamente, pois herdam
--- a causa raiz pelo vínculo (não é preciso reclassificar nenhum deles).
 create function validar_atraso(p_atraso_id int, p_motivo_final text)
 returns void
 language plpgsql
@@ -277,7 +236,6 @@ begin
 end;
 $$;
 
--- Árvore completa a partir de uma causa raiz (CTE recursiva)
 create function cadeia_atraso(p_raiz_id int)
 returns table (
     atraso_id int, atraso_pai_id int, nivel int, tipo text,
@@ -305,11 +263,6 @@ as $$
      order by arvore.nivel, v.partida_prevista, a.id;
 $$;
 
--- ---------------------------------------------------------------------
--- VIEWS (consultadas pelo site)
--- ---------------------------------------------------------------------
-
--- Cada atraso com a sua causa raiz (CTE recursiva subindo a cadeia)
 create view vw_atraso_detalhado as
 with recursive subida as (
     select id as atraso_id, id as atual_id, atraso_pai_id, 0 as profundidade
@@ -341,10 +294,9 @@ select a.id, a.voo_id, v.numero as voo_numero, v.matricula,
   join atraso ar on ar.id = r.raiz_id
   join motivo mr on mr.codigo = ar.motivo_codigo;
 
--- Resumo de cada voo: atraso total, herdado e novo
 create view vw_voo_resumo as
 select r.*,
-       -- fase do voo conforme o relógio da simulação
+
        case
          when agora() >= r.chegada_estimada then 'POUSOU'
          when agora() >= r.partida_estimada then 'EM_VOO'
@@ -364,7 +316,6 @@ select r.*,
      group by v.id
   ) r;
 
--- Como os relatórios ficariam do jeito antigo (pelo sintoma)
 create view vw_minutos_por_sintoma as
 select partida_prevista::date as data, sintoma_codigo as codigo,
        sintoma_descricao as descricao,
@@ -372,7 +323,6 @@ select partida_prevista::date as data, sintoma_codigo as codigo,
   from vw_atraso_detalhado
  group by 1, 2, 3;
 
--- Como ficam com a solução (pela causa raiz)
 create view vw_minutos_por_causa_raiz as
 select partida_prevista::date as data, causa_raiz_codigo as codigo,
        causa_raiz_descricao as descricao, causa_raiz_area as area,
@@ -380,19 +330,14 @@ select partida_prevista::date as data, causa_raiz_codigo as codigo,
   from vw_atraso_detalhado
  group by 1, 2, 3, 4;
 
-
--- ---------------------------------------------------------------------
--- ACESSO: funcionários (código de identificação) e passageiros (e-mail)
--- As senhas são guardadas com hash bcrypt (extensão pgcrypto).
--- ---------------------------------------------------------------------
 create schema if not exists extensions;
 create extension if not exists pgcrypto with schema extensions;
 
 create table funcionario (
     id         serial primary key,
-    codigo     text not null unique,        -- ex.: AL-1001
+    codigo     text not null unique,
     nome       text not null,
-    area       text not null,               -- CCO, Aeroporto, Manutenção...
+    area       text not null,
     senha_hash text not null
 );
 
@@ -412,7 +357,6 @@ create table sessao (
     check ((funcionario_id is null) <> (passageiro_id is null))
 );
 
--- voos que cada passageiro acompanha
 create table passageiro_voo (
     passageiro_id int not null references passageiro(id) on delete cascade,
     voo_id        int not null references voo(id) on delete cascade,
@@ -515,7 +459,6 @@ begin
 end;
 $$;
 
--- Quem está logado (usado pelas páginas ao abrir)
 create function sessao_atual(p_token uuid)
 returns jsonb
 language sql stable security definer set search_path = public
@@ -537,11 +480,6 @@ returns void
 language sql security definer set search_path = public
 as $$ delete from sessao where token = p_token $$;
 
--- ---------------------------------------------------------------------
--- ÁREA DO PASSAGEIRO
--- ---------------------------------------------------------------------
-
--- Traduz a causa raiz para uma frase que o passageiro entende
 create function motivo_para_cliente(p_categoria text)
 returns text
 language sql immutable
@@ -583,7 +521,7 @@ begin
           from passageiro_voo pv
           join vw_voo_resumo r on r.id = pv.voo_id
           left join lateral (
-               -- causa principal: a raiz que mais somou minutos neste voo
+
                select case
                         when bool_or(d.tipo = 'CONSEQUENTE') and not bool_or(d.tipo = 'ORIGINADOR' and d.raiz_id = d.id)
                           then 'O avião deste voo chega de um voo anterior que atrasou por '
@@ -599,7 +537,6 @@ begin
 end;
 $$;
 
--- Passageiro passa a acompanhar um voo pelo número (usa a próxima data disponível)
 create function acompanhar_voo(p_token uuid, p_numero text)
 returns void
 language plpgsql security definer set search_path = public
@@ -632,9 +569,6 @@ begin
 end;
 $$;
 
--- ---------------------------------------------------------------------
--- ÁREA DO FUNCIONÁRIO: as mesmas ações de antes, agora exigindo login
--- ---------------------------------------------------------------------
 create function op_registrar_atraso(p_token uuid, p_voo_id int, p_motivo text, p_minutos int, p_observacao text default null)
 returns int
 language plpgsql security definer set search_path = public
@@ -688,27 +622,19 @@ begin
 end;
 $$;
 
-
--- ---------------------------------------------------------------------
--- SIMULAÇÃO DO DIA
--- Os problemas do dia ficam programados em evento_simulado e só
--- "acontecem" quando o relógio chega no horário deles. Assim a
--- demonstração mostra o atraso surgindo e se propagando ao vivo.
--- ---------------------------------------------------------------------
 create table evento_simulado (
     id          serial primary key,
     acontece_em timestamp not null,
     tipo        text not null check (tipo in ('ATRASO', 'PARECER', 'VALIDACAO')),
-    voo_numero  text not null,             -- voo onde o problema acontece
+    voo_numero  text not null,
     motivo      text not null references motivo(codigo),
-    minutos     int,                       -- só para ATRASO
-    area        text,                      -- só para PARECER
-    texto       text,                      -- observação ou justificativa
+    minutos     int,
+    area        text,
+    texto       text,
     autor       text not null,
     aplicado    boolean not null default false
 );
 
--- Aplica os eventos cujo horário já chegou. Devolve o que aconteceu.
 create function aplicar_eventos()
 returns jsonb
 language plpgsql security definer set search_path = public
@@ -753,7 +679,6 @@ begin
 end;
 $$;
 
--- Avança o relógio (somente funcionários)
 create function avancar_relogio(p_token uuid, p_minutos int)
 returns jsonb
 language plpgsql security definer set search_path = public
@@ -771,7 +696,6 @@ begin
 end;
 $$;
 
--- Volta o dia para 06:00 e desfaz tudo o que aconteceu (somente funcionários)
 create function reiniciar_simulacao(p_token uuid)
 returns void
 language plpgsql security definer set search_path = public
@@ -785,11 +709,6 @@ begin
 end;
 $$;
 
--- ---------------------------------------------------------------------
--- SEGURANÇA (Supabase)
--- O site usa a chave pública "anon": pode LER tudo, mas só ALTERA
--- dados pelas funções acima, que aplicam as regras de negócio.
--- ---------------------------------------------------------------------
 alter table configuracao enable row level security;
 alter table aeronave     enable row level security;
 alter table motivo       enable row level security;
@@ -804,11 +723,11 @@ create policy leitura_publica on voo          for select using (true);
 create policy leitura_publica on atraso       for select using (true);
 create policy leitura_publica on parecer      for select using (true);
 
-alter table funcionario    enable row level security;   -- sem política: ninguém lê direto
+alter table funcionario    enable row level security;
 alter table passageiro     enable row level security;
 alter table sessao         enable row level security;
 alter table passageiro_voo enable row level security;
-alter table evento_simulado enable row level security;   -- o futuro não é visível
+alter table evento_simulado enable row level security;
 alter table relogio        enable row level security;
 create policy leitura_publica on relogio for select using (true);
 
@@ -816,10 +735,8 @@ grant usage on schema public to anon, authenticated;
 grant select on all tables in schema public to anon, authenticated;
 revoke all on funcionario, passageiro, sessao, passageiro_voo, evento_simulado from anon, authenticated;
 
--- funções internas: só o próprio banco usa
 revoke execute on all functions in schema public from public, anon, authenticated;
 
--- o que o site pode chamar
 grant execute on function cadeia_atraso(int)                               to anon, authenticated;
 grant execute on function cadastrar_passageiro(text, text, text)           to anon, authenticated;
 grant execute on function entrar_passageiro(text, text)                    to anon, authenticated;
@@ -837,7 +754,6 @@ grant execute on function agora()                                          to an
 grant execute on function avancar_relogio(uuid, int)                       to anon, authenticated;
 grant execute on function reiniciar_simulacao(uuid)                        to anon, authenticated;
 
--- As views respeitam as permissões de quem consulta
 alter view vw_atraso_detalhado       set (security_invoker = true);
 alter view vw_voo_resumo             set (security_invoker = true);
 alter view vw_minutos_por_sintoma    set (security_invoker = true);

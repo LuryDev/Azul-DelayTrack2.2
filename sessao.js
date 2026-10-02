@@ -1,22 +1,16 @@
-// =====================================================================
-//  DelayTrack · conexão com o Supabase e controle de sessão
-//  Usado pelas três páginas (login, operação e passageiro).
-// =====================================================================
-
 const configurado = typeof SUPABASE_URL === 'string' && SUPABASE_URL.startsWith('http');
 const db = configurado ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-// O token da sessão fica guardado no navegador.
 const Sessao = {
   chave: 'delaytrack.sessao',
   token() {
     try { return localStorage.getItem(this.chave); } catch (e) { return null; }
   },
   salvar(token) {
-    try { localStorage.setItem(this.chave, token); } catch (e) { /* navegação privada */ }
+    try { localStorage.setItem(this.chave, token); } catch (e) {  }
   },
   limpar() {
-    try { localStorage.removeItem(this.chave); } catch (e) { /* navegação privada */ }
+    try { localStorage.removeItem(this.chave); } catch (e) {  }
   },
 };
 
@@ -25,7 +19,6 @@ function irParaLogin(tipo) {
   return null;
 }
 
-// Confere se quem abriu a página está logado com o tipo de conta certo.
 async function exigirSessao(tipo) {
   const token = Sessao.token();
   if (!configurado || !token) return irParaLogin(tipo);
@@ -35,7 +28,7 @@ async function exigirSessao(tipo) {
     return irParaLogin(tipo);
   }
   if (data.tipo !== tipo) {
-    // logado com outro tipo de conta: vai para a própria página
+
     location.replace(data.tipo === 'FUNCIONARIO' ? 'operacao.html' : 'passageiro.html');
     return null;
   }
@@ -49,7 +42,6 @@ async function sair() {
   location.replace('index.html');
 }
 
-// Executa uma chamada ao banco; se a sessão venceu, volta para o login.
 async function consulta(promessa) {
   const { data, error } = await promessa;
   if (error) {
@@ -62,7 +54,6 @@ async function consulta(promessa) {
   return data;
 }
 
-// Logo do DelayTrack (desenho original): avião decolando com o rastro da rota.
 const MARCA_SVG = `
   <svg class="marca-simbolo" viewBox="0 0 48 48" aria-hidden="true">
     <path d="M5 43 C 11 41, 15 37, 18 32" fill="none" stroke="var(--cor-raiz, currentColor)" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="0.5 4.5"/>
@@ -75,16 +66,10 @@ function desenharMarcas() {
   document.querySelectorAll('[data-marca]').forEach((el) => { el.innerHTML = MARCA_SVG; });
 }
 
-// ---------------------------------------------------------------------
-// Animações (discretas). Ficam desligadas para quem pediu ao sistema
-// operacional para reduzir movimento.
-// ---------------------------------------------------------------------
 const reduzirMovimento = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const AVIAO_PATH = 'M28 2.5 C29.6 2.5 30.6 4.6 30.6 7 L30.6 14.5 L43 22.5 L43 25.5 L30.6 21.6 L30.6 30.5 L34.4 33.6 L34.4 36 L28 34.2 L21.6 36 L21.6 33.6 L25.4 30.5 L25.4 21.6 L13 25.5 L13 22.5 L25.4 14.5 L25.4 7 C25.4 4.6 26.4 2.5 28 2.5 Z';
 
-// Um aviãozinho decola do elemento clicado e some no ar.
-// Devolve uma Promise que termina junto com a animação.
 function voarAviao(origem) {
   if (!origem || reduzirMovimento() || !document.body.animate) return Promise.resolve();
   const r = origem.getBoundingClientRect();
@@ -98,7 +83,6 @@ function voarAviao(origem) {
   aviao.innerHTML = `<svg viewBox="0 0 48 48" aria-hidden="true"><g transform="rotate(45 28 20)"><path d="${AVIAO_PATH}"/></g></svg>`;
   document.body.appendChild(aviao);
 
-  // rastro pontilhado que fica para trás
   for (let i = 0; i < 4; i++) {
     const ponto = document.createElement('span');
     ponto.className = 'rastro-ponto';
@@ -118,10 +102,9 @@ function voarAviao(origem) {
   return voo.finished.then(() => aviao.remove());
 }
 
-// Destaca uma vez um elemento que acabou de mudar.
 function piscar(el) {
   if (!el || reduzirMovimento()) return;
   el.classList.remove('mudou');
-  void el.offsetWidth;          // reinicia a animação
+  void el.offsetWidth;
   el.classList.add('mudou');
 }

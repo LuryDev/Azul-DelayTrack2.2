@@ -1,8 +1,3 @@
-// =====================================================================
-//  DelayTrack · área do passageiro
-//  Mostra só o que interessa: o voo atrasou? qual o novo horário? por quê?
-// =====================================================================
-
 desenharMarcas();
 
 const CIDADES = {
@@ -32,8 +27,6 @@ function duracao(min) {
   return min % 60 ? `${h}h${String(min % 60).padStart(2, '0')}` : `${h}h`;
 }
 
-// ---------------------------------------------------------------------
-// O que mostrar em cada fase do voo (conforme o relógio da simulação)
 function situacaoDoVoo(v, atrasado) {
   const motivo = atrasado && v.motivo ? `<p class="motivo">${esc(v.motivo)}</p>` : '';
   const bloco = (classe, titulo, texto, comMotivo) => `
@@ -112,7 +105,6 @@ async function carregar() {
          Digite abaixo o número do seu voo para acompanhar.
        </div>`;
 
-  // cartões novos surgem; cartões cuja situação mudou piscam uma vez
   $('voos').querySelectorAll('.bilhete').forEach((el, i) => {
     const v = voos[i];
     const chave = `${v.atraso}|${v.fase}`;
@@ -154,5 +146,5 @@ $('btn-sair').addEventListener('click', sair);
   if (!quem) return;
   $('saudacao').textContent = `Olá, ${quem.nome.split(' ')[0]}`;
   await carregar();
-  setInterval(() => carregar().catch(() => {}), 10000);   // atualiza a cada 10 segundos
+  setInterval(() => carregar().catch(() => {}), 10000);
 })();
