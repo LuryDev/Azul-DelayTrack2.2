@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrar · DelayTrack</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='10' fill='%23161b42'/%3E%3Cg transform='translate%284 3%29 scale%28.85%29 rotate%2845 28 20%29'%3E%3Cpath d='M28 2.5 C29.6 2.5 30.6 4.6 30.6 7 L30.6 14.5 L43 22.5 L43 25.5 L30.6 21.6 L30.6 30.5 L34.4 33.6 L34.4 36 L28 34.2 L21.6 36 L21.6 33.6 L25.4 30.5 L25.4 21.6 L13 25.5 L13 22.5 L25.4 14.5 L25.4 7 C25.4 4.6 26.4 2.5 28 2.5 Z' fill='%23d3983f'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="publico.css">
+</head>
+<body>
+  <div class="login">
+    <aside class="login-lado">
+      <div class="marca">
+        <span data-marca></span>
+        <span class="marca-nome">DelayTrack</span>
+      </div>
+
+      <div>
+        <h1>Seu voo, sem surpresas.</h1>
+        <p>Veja na hora se o seu voo atrasou, o novo horário e o motivo real do atraso.</p>
+      </div>
+
+      <svg class="login-rota" viewBox="0 0 400 200" aria-hidden="true">
+        <path d="M10 190 C 120 180, 230 120, 390 10" fill="none" stroke="#F2A93B" stroke-width="3" stroke-dasharray="2 10" stroke-linecap="round"/>
+      </svg>
+    </aside>
+
+    <main class="login-principal">
+      <div class="cartao-login">
+        <div class="abas" role="tablist" aria-label="Tipo de acesso">
+          <button class="aba" role="tab" id="aba-passageiro" aria-selected="true" aria-controls="painel-passageiro">Passageiro</button>
+          <button class="aba" role="tab" id="aba-funcionario" aria-selected="false" aria-controls="painel-funcionario">Funcionário</button>
+        </div>
+
+        <div id="aviso-config" class="erro" hidden>
+          Configure a Project URL e a anon key do Supabase no arquivo config.js.
+        </div>
+
+        <!-- PASSAGEIRO: entrar -->
+        <section id="painel-passageiro" role="tabpanel" aria-labelledby="aba-passageiro">
+          <form id="form-entrar">
+            <h2>Entre na sua conta</h2>
+            <p class="apoio">Use o e-mail e a senha que você cadastrou.</p>
+            <div class="erro" hidden></div>
+            <label class="campo"><span>E-mail</span>
+              <input type="email" name="email" autocomplete="email" required>
+            </label>
+            <label class="campo"><span>Senha</span>
+              <input type="password" name="senha" autocomplete="current-password" required>
+            </label>
+            <button class="botao largo" type="submit">Entrar</button>
+            <p class="troca">Ainda não tem conta? <button type="button" class="link" data-ir="cadastro">Criar conta</button></p>
+          </form>
+
+          <!-- PASSAGEIRO: criar conta -->
+          <form id="form-cadastro" hidden>
+            <h2>Crie sua conta</h2>
+            <p class="apoio">Leva menos de um minuto.</p>
+            <div class="erro" hidden></div>
+            <label class="campo"><span>Nome</span>
+              <input name="nome" autocomplete="name" required>
+            </label>
+            <label class="campo"><span>E-mail</span>
+              <input type="email" name="email" autocomplete="email" required>
+            </label>
+            <label class="campo"><span>Senha</span>
+              <input type="password" name="senha" autocomplete="new-password" minlength="6" required>
+            </label>
+            <button class="botao largo" type="submit">Criar conta</button>
+            <p class="troca">Já tem conta? <button type="button" class="link" data-ir="entrar">Entrar</button></p>
+          </form>
+        </section>
+
+        <!-- FUNCIONÁRIO -->
+        <section id="painel-funcionario" role="tabpanel" aria-labelledby="aba-funcionario" hidden>
+          <form id="form-funcionario">
+            <h2>Acesso da operação</h2>
+            <p class="apoio">Entre com o seu código de identificação de funcionário.</p>
+            <div class="erro" hidden></div>
+            <label class="campo"><span>Código de identificação</span>
+              <input name="codigo" placeholder="AL-0000" autocomplete="username" autocapitalize="characters" required>
+            </label>
+            <label class="campo"><span>Senha</span>
+              <input type="password" name="senha" autocomplete="current-password" required>
+            </label>
+            <button class="botao largo" type="submit">Entrar na operação</button>
+          </form>
+        </section>
+
+        <details class="demo">
+          <summary>Contas de demonstração</summary>
+          <p>Passageira: <code>ana@exemplo.com</code> · senha <code>senha123</code></p>
+          <p>Funcionária do CCO: <code>AL-1001</code> · senha <code>alcar2026</code></p>
+        </details>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="sessao.js"></script>
+  <script src="login.js"></script>
+</body>
+</html>

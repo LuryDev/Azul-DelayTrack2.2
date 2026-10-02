@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meus voos · DelayTrack</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='10' fill='%23161b42'/%3E%3Cg transform='translate%284 3%29 scale%28.85%29 rotate%2845 28 20%29'%3E%3Cpath d='M28 2.5 C29.6 2.5 30.6 4.6 30.6 7 L30.6 14.5 L43 22.5 L43 25.5 L30.6 21.6 L30.6 30.5 L34.4 33.6 L34.4 36 L28 34.2 L21.6 36 L21.6 33.6 L25.4 30.5 L25.4 21.6 L13 25.5 L13 22.5 L25.4 14.5 L25.4 7 C25.4 4.6 26.4 2.5 28 2.5 Z' fill='%23d3983f'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="publico.css">
+</head>
+<body>
+  <header class="topo-pax">
+    <div class="topo-pax-dentro">
+      <span class="marca">
+        <span data-marca></span>
+        <span class="marca-nome">DelayTrack</span>
+      </span>
+      <button class="link" id="btn-sair">Sair</button>
+    </div>
+  </header>
+
+  <main class="pax">
+    <h1 id="saudacao">Olá</h1>
+    <p class="apoio" id="horario">Carregando seus voos...</p>
+
+    <div id="voos" class="voos" aria-live="polite"></div>
+
+    <form class="acompanhar" id="form-acompanhar">
+      <h2>Acompanhar outro voo</h2>
+      <div class="erro" hidden></div>
+      <div class="acompanhar-linha">
+        <label class="campo">
+          <span>Número do voo</span>
+          <input name="numero" placeholder="Ex.: AD4102" autocomplete="off" required>
+        </label>
+        <button class="botao" type="submit">Acompanhar</button>
+      </div>
+      <small>O número está no seu cartão de embarque.</small>
+    </form>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="sessao.js"></script>
+  <script src="passageiro.js"></script>
+</body>
+</html>
