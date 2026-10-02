@@ -93,17 +93,52 @@ function bilhete(v) {
     </article>`;
 }
 
+const ESQUELETO_BILHETE = `
+  <div class="bilhete bilhete-esq" aria-hidden="true">
+    <div class="bilhete-topo"><span class="esqueleto" style="width:90px"></span><span class="esqueleto" style="width:110px"></span></div>
+    <div class="trecho">
+      <div class="ponta"><span class="esqueleto codigo-esq"></span><span class="esqueleto" style="width:90px"></span></div>
+      <span></span>
+      <div class="ponta fim"><span class="esqueleto codigo-esq"></span><span class="esqueleto" style="width:90px"></span></div>
+    </div>
+    <div class="picote"></div>
+    <div class="situacao"><span class="esqueleto" style="width:45%;height:20px"></span><span class="esqueleto" style="width:75%"></span></div>
+  </div>`;
+
+const ILUSTRACAO_VAZIO = `
+  <svg class="vazio-ilustracao" viewBox="0 0 240 130" aria-hidden="true">
+    <circle cx="44" cy="26" r="13" class="ilu-sol"/>
+    <g class="ilu-nuvem">
+      <path d="M30 104 a16 16 0 0 1 14-24 a22 22 0 0 1 41 -4 a15 15 0 0 1 20 13 a12 12 0 0 1 -2 23 H40 a10 10 0 0 1 -10 -8 Z"/>
+      <path d="M150 112 a12 12 0 0 1 11-18 a17 17 0 0 1 31 -3 a11 11 0 0 1 15 10 a9 9 0 0 1 -2 17 H158 a8 8 0 0 1 -8 -6 Z"/>
+    </g>
+    <path class="ilu-rota" d="M24 70 C 70 66, 110 52, 150 30"/>
+    <g class="ilu-aviao" transform="translate(140 6) scale(.95)">
+      <g transform="rotate(62 28 20)"><path d="M28 2.5 C29.6 2.5 30.6 4.6 30.6 7 L30.6 14.5 L43 22.5 L43 25.5 L30.6 21.6 L30.6 30.5 L34.4 33.6 L34.4 36 L28 34.2 L21.6 36 L21.6 33.6 L25.4 30.5 L25.4 21.6 L13 25.5 L13 22.5 L25.4 14.5 L25.4 7 C25.4 4.6 26.4 2.5 28 2.5 Z"/></g>
+    </g>
+  </svg>`;
+
+const VAZIO = `
+  <div class="vazio-pax">
+    ${ILUSTRACAO_VAZIO}
+    <strong>Nenhum voo por aqui ainda</strong>
+    <p>Acompanhe um voo e a gente avisa aqui se ele atrasar, com o novo horário e o motivo.</p>
+    <button class="botao" type="button" id="btn-primeiro-voo">Acompanhar um voo</button>
+  </div>`;
+
 const situacaoAnterior = new Map();
 
 async function carregar() {
   const { agora, voos } = await consulta(db.rpc('meus_voos', { p_token: Sessao.token() }));
   $('horario').textContent = `Situação às ${hora(agora)} (horário simulado)`;
-  $('voos').innerHTML = voos.length
-    ? voos.map(bilhete).join('')
-    : `<div class="vazio-pax">
-         <strong>Nenhum voo por aqui ainda</strong>
-         Digite abaixo o número do seu voo para acompanhar.
-       </div>`;
+  $('voos').innerHTML = voos.length ? voos.map(bilhete).join('') : VAZIO;
+  $('form-acompanhar').classList.toggle('sem-voos', !voos.length);
+  $('form-acompanhar').querySelector('h2').textContent = voos.length ? 'Acompanhar outro voo' : 'Acompanhar um voo';
+  $('btn-primeiro-voo')?.addEventListener('click', () => {
+    const campo = $('form-acompanhar').numero;
+    campo.scrollIntoView({ behavior: reduzirMovimento() ? 'auto' : 'smooth', block: 'center' });
+    campo.focus({ preventScroll: true });
+  });
 
   $('voos').querySelectorAll('.bilhete').forEach((el, i) => {
     const v = voos[i];
@@ -140,6 +175,8 @@ $('form-acompanhar').addEventListener('submit', async (e) => {
 });
 
 $('btn-sair').addEventListener('click', sair);
+
+$('voos').innerHTML = ESQUELETO_BILHETE.repeat(2);
 
 (async () => {
   const quem = await exigirSessao('PASSAGEIRO');

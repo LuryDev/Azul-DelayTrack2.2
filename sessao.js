@@ -108,3 +108,35 @@ function piscar(el) {
   void el.offsetWidth;
   el.classList.add('mudou');
 }
+
+const Tema = {
+  chave: 'delaytrack.tema',
+  atual() { return document.documentElement.dataset.tema === 'escuro' ? 'escuro' : 'claro'; },
+  aplicar(tema) {
+    document.documentElement.dataset.tema = tema;
+    try { localStorage.setItem(this.chave, tema); } catch (e) {  }
+    document.querySelectorAll('[data-tema-botao]').forEach(desenharBotaoTema);
+  },
+};
+
+const ICONE_LUA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1Z" fill="currentColor"/></svg>';
+const ICONE_SOL = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.6" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1.8v2.4M12 19.8v2.4M1.8 12h2.4M19.8 12h2.4M4.8 4.8l1.7 1.7M17.5 17.5l1.7 1.7M4.8 19.2l1.7-1.7M17.5 6.5l1.7-1.7"/></g></svg>';
+
+function desenharBotaoTema(botao) {
+  const escuro = Tema.atual() === 'escuro';
+  botao.innerHTML = escuro ? ICONE_SOL : ICONE_LUA;
+  const rotulo = escuro ? 'Usar modo claro' : 'Usar modo escuro';
+  botao.setAttribute('aria-label', rotulo);
+  botao.title = rotulo;
+}
+
+function configurarTema() {
+  document.querySelectorAll('[data-tema-botao]').forEach((botao) => {
+    desenharBotaoTema(botao);
+    botao.addEventListener('click', () => {
+      Tema.aplicar(Tema.atual() === 'escuro' ? 'claro' : 'escuro');
+      botao.classList.remove('girar'); void botao.offsetWidth; botao.classList.add('girar');
+    });
+  });
+}
+configurarTema();

@@ -8,6 +8,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('delaytrack.tema'); } catch (e) {}
+      if (!t) t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro';
+      document.documentElement.dataset.tema = t;
+    })();
+  </script>
   <link rel="stylesheet" href="publico.css">
 </head>
 <body>
@@ -17,7 +25,10 @@
         <span data-marca></span>
         <span class="marca-nome">DelayTrack</span>
       </span>
-      <button class="link" id="btn-sair">Sair</button>
+      <div class="topo-pax-acoes">
+        <button class="botao-tema" type="button" data-tema-botao></button>
+        <button class="link" id="btn-sair">Sair</button>
+      </div>
     </div>
   </header>
 

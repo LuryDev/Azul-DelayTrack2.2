@@ -74,6 +74,7 @@ async function iniciar() {
   mostrarTela();
   if (!configurado) { $('aviso-config').hidden = false; return; }
 
+  mostrarEsqueletos();
   usuario = await exigirSessao('FUNCIONARIO');
   if (!usuario) return;
   $('usuario-nome').textContent = usuario.nome;
@@ -92,6 +93,24 @@ async function iniciar() {
   } catch (e) {
     toast('Não foi possível conectar ao banco de dados: ' + e.message, true);
   }
+}
+
+function mostrarEsqueletos() {
+  const barra = (largura) => `<span class="esqueleto" style="width:${largura}"></span>`;
+  $('resumo-dia').innerHTML = barra('min(520px, 90%)');
+  $('aeronaves').innerHTML = [140, 120, 130].map((largura) => `
+    <section class="aeronave" aria-hidden="true">
+      <span class="esqueleto titulo-esq" style="width:${largura}px"></span>
+      <ol class="voos">${'<li><span class="esqueleto voo-esq"></span></li>'.repeat(4)}</ol>
+    </section>`).join('');
+  $('pendentes').innerHTML = `<div class="cartao" aria-hidden="true">
+      <span class="esqueleto titulo-esq" style="width:55%"></span>
+      ${barra('80%')}${barra('100%')}<span class="esqueleto bloco-esq"></span>
+    </div>`.repeat(2);
+  const barras = `<div class="barras-esq" aria-hidden="true">${['90%', '60%', '45%', '30%'].map((l) => `${barra('50%')}<span class="esqueleto barra-esq" style="width:${l}"></span>`).join('')}</div>`;
+  ['graf-sintoma', 'graf-raiz', 'graf-areas'].forEach((id) => ($(id).innerHTML = barras));
+  $('destaque').innerHTML = `${barra('95%')}${barra('70%')}`;
+  $('destaque').classList.add('carregando');
 }
 
 async function recarregar() {
@@ -123,6 +142,7 @@ async function recarregar() {
     ? await consulta(db.from('parecer').select('*').in('atraso_id', ids).order('criado_em'))
     : [];
 
+  $('destaque').classList.remove('carregando');
   renderVoos();
   renderConfirmar();
   renderResultados(sintoma, raiz);
@@ -291,6 +311,8 @@ function renderDetalhe() {
            <span>Partida às ${hora(v.partida_prevista)}</span>
          </div>`}
 
+    ${linhaDoAviao(v)}
+
     ${atrasos.length ? `
       <h4>Por que atrasou</h4>
       <ul class="motivos">${atrasos.map(itemMotivo).join('')}</ul>
@@ -338,6 +360,47 @@ function cascatas(raizes, vooAtual) {
   return blocos.length ? `<h4>Efeito cascata</h4>${blocos.join('')}` : '';
 }
 
+let assinaturaLinha = '';
+
+function linhaDoAviao(v) {
+  const voos = estado.voos.filter((x) => x.matricula === v.matricula);
+  const n = voos.length;
+  if (n < 2) return '';
+
+  const assinatura = `${v.id}|${voos.map((x) => x.atraso_total).join(',')}`;
+  const animar = assinatura !== assinaturaLinha && !reduzirMovimento();
+  assinaturaLinha = assinatura;
+
+  const comAtraso = voos.map((x, i) => (x.atraso_total > 0 ? i : -1)).filter((i) => i >= 0);
+  const ini = comAtraso.length ? comAtraso[0] : -1;
+  const fim = comAtraso.length ? comAtraso[comAtraso.length - 1] : -1;
+  const pos = (i) => (i / (n - 1)) * 100;
+  const passos = Math.max(1, fim - ini);
+  const duracao = Math.min(1.8, 0.45 * passos + 0.3);
+
+  const paradas = voos.map((x, i) => {
+    const classe = x.atraso_novo > 0 ? 'origem' : x.atraso_herdado > 0 ? 'herdou' : 'ok';
+    const atraso = ini >= 0 && i >= ini ? ((i - ini) / passos) * duracao : 0;
+    return `
+      <li class="parada ${classe} ${x.id === v.id ? 'atual' : ''}" style="--atraso:${atraso.toFixed(2)}s">
+        <span class="parada-ponto"></span>
+        <strong>${esc(x.numero)}</strong>
+        <small>${hora(x.partida_prevista)}</small>
+        <em>${x.atraso_total ? `+${x.atraso_total} min` : 'no horário'}</em>
+      </li>`;
+  }).join('');
+
+  return `
+    <div class="linha-aviao ${animar ? 'animar' : ''}" style="--n:${n};--de:${pos(Math.max(ini, 0))}%;--ate:${pos(Math.max(fim, 0))}%;--duracao:${duracao.toFixed(2)}s">
+      <h4>Dia da aeronave ${esc(v.matricula)}</h4>
+      <div class="linha-trilho" aria-hidden="true">
+        <span class="trilho-base"></span>
+        ${ini >= 0 && fim > ini ? '<span class="trilho-cheio"></span><span class="trilho-aviao"><svg viewBox="0 0 48 48"><g transform="rotate(90 28 20)"><path d="' + AVIAO_PATH + '"/></g></svg></span>' : ''}
+      </div>
+      <ol class="paradas" aria-label="Voos da aeronave ${esc(v.matricula)} hoje">${paradas}</ol>
+    </div>`;
+}
+
 function blocoCascata(raizId, vooAtual) {
   const cadeia = estado.atrasos.filter((a) => a.raiz_id === raizId);
   if (cadeia.length < 2) return '';
@@ -354,13 +417,8 @@ function blocoCascata(raizId, vooAtual) {
 
   return `
     <p class="ajuda">O problema do ${esc(raiz.voo_numero)} (${esc(emFrase(raiz.causa_raiz_descricao))}) somou
-      <strong>${total} min</strong> em ${plural(porVoo.length, 'voo', 'voos')}.</p>
-    <ol class="cascata">
-      ${porVoo.map((x) => `
-        <li class="${x.voo_id === vooAtual ? 'atual' : ''}" ${x.voo_id === vooAtual ? 'aria-current="true"' : ''}>
-          <span>${esc(x.numero)}</span><small>+${x.minutos} min</small>
-        </li>`).join('<li class="seta" aria-hidden="true">→</li>')}
-    </ol>`;
+      <strong>${total} min</strong> em ${plural(porVoo.length, 'voo', 'voos')}:
+      ${porVoo.map((x) => `${esc(x.numero)} +${x.minutos}`).join(' → ')}.</p>`;
 }
 
 function formAtraso(v) {
