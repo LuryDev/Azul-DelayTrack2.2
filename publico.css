@@ -169,31 +169,16 @@ button { font: inherit; }
   --cor-raiz: #9CC9C2;
 }
 .topo-pax-dentro {
-<<<<<<< HEAD
-  padding: 18px clamp(20px, 3vw, 46px);
-=======
   max-width: 640px;
   margin: 0 auto;
   padding: 16px 20px;
->>>>>>> origin/main
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 .topo-pax .link { color: #fff; }
 
-<<<<<<< HEAD
-.pax {
-  display: grid;
-  grid-template-columns: minmax(240px, 390px) minmax(0, 690px);
-  gap: 0 clamp(32px, 3vw, 48px);
-  align-items: start;
-  padding: 44px clamp(20px, 3vw, 46px) 64px;
-}
-.pax-conteudo { min-width: 0; }
-=======
 .pax { max-width: 640px; margin: 0 auto; padding: 32px 20px 64px; }
->>>>>>> origin/main
 .pax h1 { font-size: 1.9rem; letter-spacing: -0.03em; margin: 0 0 4px; }
 .pax .apoio { color: var(--tinta-suave); margin: 0 0 28px; }
 
@@ -234,11 +219,7 @@ button { font: inherit; }
 .picote {
   position: relative;
   height: 0;
-<<<<<<< HEAD
-  border-top: 2px dotted var(--linha);
-=======
   border-top: 2px dashed var(--linha);
->>>>>>> origin/main
   margin: 0 18px;
 }
 .picote::before, .picote::after {
@@ -272,23 +253,6 @@ button { font: inherit; }
 .situacao.atrasado + .bilhete-rodape { background: var(--ambar-claro); }
 .bilhete-rodape .link { font-size: .88rem; color: var(--tinta-suave); font-weight: 500; }
 
-<<<<<<< HEAD
-.acompanhar { margin: 0 0 40px; }
-.acompanhar h2 { font-size: 1.3rem; letter-spacing: -0.01em; margin: 0 0 14px; }
-.acompanhar-linha {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "campo botao" "dica dica";
-  gap: 0 12px;
-  align-items: end;
-}
-.acompanhar-linha .campo { grid-area: campo; margin: 0; }
-.acompanhar-linha .botao { grid-area: botao; padding: 13px 26px; }
-.acompanhar-linha small { grid-area: dica; }
-.acompanhar-linha .campo input { text-transform: uppercase; }
-.acompanhar-linha .campo input::placeholder { text-transform: none; }
-.acompanhar small { display: block; color: var(--tinta-suave); margin-top: 8px; font-size: .88rem; }
-=======
 .acompanhar { margin-top: 36px; }
 .acompanhar h2 { font-size: 1.15rem; margin: 0 0 12px; }
 .acompanhar-linha { display: flex; gap: 10px; align-items: flex-end; }
@@ -296,7 +260,6 @@ button { font: inherit; }
 .acompanhar-linha .campo input { text-transform: uppercase; }
 .acompanhar-linha .campo input::placeholder { text-transform: none; }
 .acompanhar small { display: block; color: var(--tinta-suave); margin-top: 8px; }
->>>>>>> origin/main
 
 .vazio-pax {
   background: var(--papel);
@@ -320,11 +283,6 @@ button { font: inherit; }
 .atualizado { text-align: center; color: var(--tinta-suave); font-size: .85rem; margin-top: 28px; }
 
 @media (max-width: 820px) {
-<<<<<<< HEAD
-  .pax { grid-template-columns: 1fr; padding-top: 28px; }
-  .pax .apoio { margin-bottom: 28px; }
-=======
->>>>>>> origin/main
   .login { grid-template-columns: 1fr; }
   .login-lado { padding: 28px 24px; gap: 28px; }
   .login-lado h1 { font-size: 1.7rem; max-width: none; margin-bottom: 8px; }
@@ -336,12 +294,7 @@ button { font: inherit; }
   .trecho-linha { width: 44px; }
   .trecho { padding: 12px 18px 18px; gap: 8px; }
   .bilhete-topo, .situacao { padding-left: 18px; padding-right: 18px; }
-<<<<<<< HEAD
-  .acompanhar-linha { grid-template-columns: 1fr; grid-template-areas: "campo" "dica" "botao"; }
-  .acompanhar-linha .botao { margin-top: 16px; width: 100%; }
-=======
   .acompanhar-linha { flex-direction: column; align-items: stretch; }
->>>>>>> origin/main
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
