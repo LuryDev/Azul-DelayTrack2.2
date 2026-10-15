@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operação · Atrazul</title>
+  <meta name="description" content="Acompanhe os voos do dia, descubra a causa raiz de cada atraso e confirme os motivos oficiais.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='10' fill='%23161b42'/%3E%3Cg transform='translate%284 3%29 scale%28.85%29 rotate%2845 28 20%29'%3E%3Cpath d='M28 2.5 C29.6 2.5 30.6 4.6 30.6 7 L30.6 14.5 L43 22.5 L43 25.5 L30.6 21.6 L30.6 30.5 L34.4 33.6 L34.4 36 L28 34.2 L21.6 36 L21.6 33.6 L25.4 30.5 L25.4 21.6 L13 25.5 L13 22.5 L25.4 14.5 L25.4 7 C25.4 4.6 26.4 2.5 28 2.5 Z' fill='%23d3983f'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('delaytrack.tema'); } catch (e) {}
+      if (!t) t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro';
+      document.documentElement.dataset.tema = t;
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="topo">
+    <div class="marca">
+      <span data-marca></span>
+      <div>
+        <h1>Atrazul</h1>
+        <p>Operação · motivos de atrasos</p>
+      </div>
+    </div>
+    <div class="topo-direita">
+      <div class="relogio" aria-live="polite">
+        <div>
+          <span>Horário simulado</span>
+          <strong id="relogio-hora">--:--</strong>
+        </div>
+        <div class="relogio-botoes">
+          <button id="btn-play" class="play" title="Faz o horário andar sozinho">▶ Reproduzir</button>
+          <button data-avancar="15">+15 min</button>
+          <button data-avancar="60">+1 h</button>
+          <button id="btn-reiniciar" title="Volta o dia para 06:00" aria-label="Reiniciar o dia">↺</button>
+        </div>
+      </div>
+      <div class="usuario">
+        <div>
+          <strong id="usuario-nome"></strong>
+          <span id="usuario-info"></span>
+        </div>
+        <button class="botao-tema" type="button" data-tema-botao></button>
+        <button id="btn-sair" class="sair">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="abas" aria-label="Seções do sistema">
+    <a class="aba" href="#voos" data-tela="voos" aria-current="page">Voos de hoje</a>
+    <a class="aba" href="#confirmar" data-tela="confirmar">Confirmar motivos <span class="contador" id="contador-pendentes" hidden></span></a>
+    <a class="aba" href="#relatorio" data-tela="relatorio">Relatório</a>
+  </nav>
+
+  <main id="conteudo">
+    <p id="aviso-config" class="aviso" hidden>
+      Configure a <b>Project URL</b> e a <b>anon key</b> do Supabase no arquivo <code>config.js</code>.
+    </p>
+
+    <section id="voos" class="tela" aria-labelledby="titulo-voos">
+      <header class="tela-topo">
+        <h2 id="titulo-voos">Voos de hoje</h2>
+        <p id="resumo-dia" class="resumo"></p>
+      </header>
+
+      <div class="layout-voos">
+        <div class="cartao">
+          <div class="legenda" aria-hidden="true">
+            <span><i class="cor herdado"></i>Atraso herdado de outro voo</span>
+            <span><i class="cor novo"></i>Problema no próprio voo</span>
+          </div>
+          <div id="aeronaves"></div>
+        </div>
+
+        <aside id="detalhe" class="cartao detalhe" aria-live="polite" aria-label="Detalhes do voo">
+          <p class="vazio">Escolha um voo para ver por que ele atrasou.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section id="confirmar" class="tela" aria-labelledby="titulo-confirmar" hidden>
+      <header class="tela-topo">
+        <h2 id="titulo-confirmar">Confirmar motivos</h2>
+        <p class="resumo">No momento do problema, o aeroporto registra um motivo provisório. Aqui ele é revisado e confirmado. Os voos afetados recebem o motivo confirmado automaticamente.</p>
+      </header>
+      <div id="pendentes" class="lista-cartoes"></div>
+      <details id="confirmados" class="cartao confirmados">
+        <summary></summary>
+        <ul></ul>
+      </details>
+    </section>
+
+    <section id="relatorio" class="tela" aria-labelledby="titulo-relatorio" hidden>
+      <header class="tela-topo">
+        <h2 id="titulo-relatorio">Relatório</h2>
+      </header>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="sessao.js"></script>
+  <script src="modelo.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
