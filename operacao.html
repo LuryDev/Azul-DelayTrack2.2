@@ -99,9 +99,44 @@
     </section>
 
     <section id="relatorio" class="tela" aria-labelledby="titulo-relatorio" hidden>
-      <header class="tela-topo">
+      <header class="tela-topo rel-topo">
         <h2 id="titulo-relatorio">Relatório</h2>
+        <p class="resumo" id="rel-hora"></p>
       </header>
+
+      <div class="rel-numeros">
+        <div class="rel-numero"><span>Minutos de atraso</span><strong id="rel-total">0</strong></div>
+        <div class="rel-numero"><span>Voos atrasados</span><strong id="rel-atrasados">0 de 0</strong></div>
+        <div class="rel-numero"><span>Atraso em cascata</span><strong id="rel-cascata">0%</strong></div>
+      </div>
+
+      <article class="cartao">
+        <h3>Por que atrasaram</h3>
+        <div class="grade-2 rel-comparacao">
+          <div>
+            <h4>Motivo no voo</h4>
+            <div id="rel-sintoma"></div>
+          </div>
+          <div>
+            <h4>Causa raiz</h4>
+            <div id="rel-raiz"></div>
+          </div>
+        </div>
+      </article>
+
+      <div class="grade-2">
+        <article class="cartao">
+          <h3>Acerto da IA</h3>
+          <p class="rel-grande" id="rel-acerto">–</p>
+          <div class="rel-trilho rel-pilha rel-trilho-alto" id="rel-acerto-barra"></div>
+          <ul class="rel-legenda" id="rel-acerto-legenda"></ul>
+        </article>
+        <article class="cartao">
+          <h3>Grupos de voos (IA)</h3>
+          <div class="rel-trilho rel-pilha rel-trilho-alto" id="rel-grupos-barra"></div>
+          <ul class="rel-legenda" id="rel-grupos-legenda"></ul>
+        </article>
+      </div>
     </section>
   </main>
 
@@ -111,6 +146,7 @@
   <script src="config.js"></script>
   <script src="sessao.js"></script>
   <script src="modelo.js"></script>
+  <script src="relatorio.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

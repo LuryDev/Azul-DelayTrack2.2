@@ -124,14 +124,16 @@ async function recarregar() {
   const inicio = estado.data;
   const fim = diaSeguinte(estado.data);
 
-  const [voos, atrasos, modeloPalavras, modeloMotivos] = await Promise.all([
+  const [voos, atrasos, modeloPalavras, modeloMotivos, exemplos] = await Promise.all([
     consulta(db.from('vw_voo_resumo').select('*')
       .gte('partida_prevista', inicio).lt('partida_prevista', fim).order('partida_prevista')),
     consulta(db.from('vw_atraso_detalhado').select('*')
       .gte('partida_prevista', inicio).lt('partida_prevista', fim).order('partida_prevista').order('id')),
     consulta(db.from('vw_modelo_palavra').select('*')).catch(() => []),
     consulta(db.from('vw_modelo_motivo').select('*')).catch(() => []),
+    consulta(db.from('exemplo_motivo').select('texto, motivo_codigo, origem')).catch(() => []),
   ]);
+  estado.exemplos = exemplos;
   ModeloMotivo.treinar(modeloPalavras, modeloMotivos);
   estado.voos = voos;
   estado.atrasos = atrasos;
@@ -143,6 +145,7 @@ async function recarregar() {
 
   renderVoos();
   renderConfirmar();
+  Relatorio.render();
 }
 
 const FIM_DO_DIA = '15:00';
@@ -463,11 +466,10 @@ function mostrarSugestoes() {
   const alvo = $('f-sugestoes');
   if (!alvo) return;
   const texto = $('f-obs').value;
-  const lista = ModeloMotivo.sugerir(texto)
-    .filter((s) => !motivo(s.codigo).reativo && s.chance >= 0.12 && s.porque.length);
+  const { lista, confiante } = ModeloMotivo.decidir(ModeloMotivo.sugerir(texto)
+    .filter((s) => !motivo(s.codigo).reativo));
   if (!texto.trim()) { alvo.innerHTML = ''; return; }
-  const segunda = lista[1]?.chance || 0;
-  if (!lista.length || lista[0].chance < 0.35 || lista[0].chance - segunda < 0.15) {
+  if (!confiante) {
     alvo.innerHTML = '<p class="sugestoes-vazio">Ainda não sei sugerir um motivo para essa descrição. Escolha na lista abaixo.</p>';
     return;
   }

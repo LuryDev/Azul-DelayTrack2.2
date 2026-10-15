@@ -479,3 +479,183 @@ body, .cartao, .voo, input, select { transition: background-color .25s ease, col
 .sugestao-barra { position: absolute; left: 0; bottom: 0; height: 3px; width: var(--chance); background: var(--laranja); border-radius: 0 3px 3px 0; }
 [data-tema="escuro"] .sugestoes { background: #10153a; }
 [data-tema="escuro"] .sugestoes-titulo, [data-tema="escuro"] .sugestao-chance { color: #b9bdf7; }
+
+:root {
+  --g-origem: #B8432F;
+  --g-herdado: #d3983f;
+  --g-ok: #2F8F5B;
+  --g-serie: #202163;
+  --g-neutro: #9aa9bb;
+  --g-trilho: #eef2f6;
+  --g-grade: #e3e9ee;
+}
+[data-tema="escuro"] {
+  --g-origem: #dd3c57;
+  --g-herdado: #c9811d;
+  --g-ok: #30a675;
+  --g-serie: #8d93f0;
+  --g-neutro: #5d6790;
+  --g-trilho: #232958;
+  --g-grade: #262d5e;
+}
+
+#relatorio .tela-topo .resumo { margin-top: 2px; }
+#relatorio .cartao h3 { margin: 0 0 12px; }
+
+.rel-analise { margin: 0 0 20px; padding: 0 0 0 16px; border-left: 3px solid var(--laranja); list-style: none; display: grid; gap: 6px; max-width: 80ch; }
+.rel-analise a { color: var(--azul); font-weight: 600; }
+[data-tema="escuro"] .rel-analise a { color: #A9AEFF; }
+
+.rel-numeros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
+.rel-numero {
+  background: var(--cartao);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 16px 18px;
+  display: grid;
+  gap: 2px;
+}
+.rel-numero span { font-size: .84rem; color: var(--texto-suave); }
+.rel-numero strong { font-size: 1.7rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.rel-numero small { font-size: .8rem; color: var(--texto-suave); }
+.rel-numero small a { color: var(--azul); }
+[data-tema="escuro"] .rel-numero small a { color: #A9AEFF; }
+
+.rel-comparacao { margin-top: 16px; }
+.rel-comparacao h4 { margin: 0 0 12px; font-size: .95rem; color: var(--texto-suave); font-weight: 600; }
+.rel-comparacao > div:first-child { padding-right: 20px; border-right: 1px solid var(--borda); }
+
+.rel-barras { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.rel-barra-rotulo { display: flex; justify-content: space-between; gap: 12px; font-size: .86rem; margin-bottom: 5px; }
+.rel-barra-rotulo strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rel-trilho { display: flex; gap: 2px; height: 14px; background: var(--g-trilho); border-radius: 4px; overflow: hidden; }
+.rel-barra { height: 100%; border-radius: 0 4px 4px 0; background: var(--g-serie); }
+.rel-pilha .rel-barra:not(:last-child) { border-radius: 0; }
+.rel-barra.origem, .rel-cor.origem { background: var(--g-origem); }
+.rel-barra.herdado, .rel-cor.herdado { background: var(--g-herdado); }
+.rel-barra.ok, .rel-cor.ok { background: var(--g-ok); }
+.rel-barra.neutro { background: var(--g-neutro); }
+.rel-barra.serie { background: var(--g-serie); }
+.rel-alvo { cursor: default; outline-offset: 2px; }
+.rel-alvo:hover .rel-barra, .rel-trilho:hover > .rel-barra { filter: brightness(1.12); }
+.rel-pilha .rel-barra.rel-alvo:hover { filter: brightness(1.15); }
+.rel-vazio { color: var(--texto-suave); font-size: .9rem; margin: 0; }
+
+.rel-legenda { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .84rem; color: var(--texto-suave); }
+.rel-legenda li { display: flex; align-items: center; gap: 8px; }
+.rel-legenda.vertical { flex-direction: column; gap: 8px; margin-top: 4px; }
+.rel-cor { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+
+.rel-ml { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(0, 2.4fr); gap: 28px; align-items: center; }
+.rel-ml-texto { display: grid; gap: 8px; align-content: start; }
+.selo-ml { justify-self: start; font-size: .75rem; font-weight: 700; color: var(--azul); background: var(--azul-claro); border-radius: 99px; padding: 3px 10px; margin-top: 6px; }
+[data-tema="escuro"] .selo-ml { color: #DDE0FF; }
+.rel-grafico { min-width: 0; }
+.rel-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.rel-grade line { stroke: var(--g-grade); stroke-width: 1; }
+.rel-grade text, .rel-eixo { fill: var(--texto-suave); font-size: 12px; }
+.rel-eixo { font-size: 12.5px; }
+.rel-dot { stroke: var(--cartao); stroke-width: 2; }
+.rel-dot.origem { fill: var(--g-origem); }
+.rel-dot.herdado { fill: var(--g-herdado); }
+.rel-dot.ok { fill: var(--g-ok); }
+.rel-hit { fill: transparent; }
+.rel-qtd { fill: var(--texto); font-size: 12px; font-weight: 600; }
+.rel-ponto:hover .rel-dot, .rel-ponto:focus .rel-dot { stroke: var(--texto); }
+.rel-ponto:focus { outline: none; }
+.rel-ponto:focus-visible .rel-hit { stroke: var(--laranja); stroke-width: 2; }
+
+.rel-tooltip {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  background: var(--cartao);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  box-shadow: var(--sombra);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: .82rem;
+  max-width: 280px;
+  display: grid;
+  gap: 2px;
+}
+.rel-tooltip div { display: grid; }
+.rel-tooltip strong { font-size: .95rem; font-variant-numeric: tabular-nums; }
+.rel-tooltip span { color: var(--texto-suave); }
+
+.rel-dados summary { cursor: pointer; font-weight: 600; }
+.rel-tabela-rolagem { overflow-x: auto; margin-top: 14px; }
+.rel-dados table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.rel-dados th, .rel-dados td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--borda); white-space: nowrap; }
+.rel-dados th { color: var(--texto-suave); font-weight: 600; }
+.rel-dados .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 1000px) {
+  .rel-ml { grid-template-columns: 1fr; }
+}
+@media (max-width: 1100px) {
+  .rel-comparacao > div:first-child { padding-right: 0; border-right: 0; padding-bottom: 18px; border-bottom: 1px solid var(--borda); }
+}
+@media (max-width: 600px) {
+  .rel-grade text, .rel-eixo, .rel-qtd { font-size: 19px; }
+  .rel-dot { r: 9px; }
+}
+@media (max-width: 420px) {
+  .rel-numeros { gap: 8px; }
+  .rel-numero { padding: 12px; }
+  .rel-numero span { font-size: .74rem; }
+  .rel-numero strong { font-size: 1.35rem; }
+}
+
+.rel-cor.neutro { background: var(--g-neutro); }
+.rel-trilho-alto { height: 26px; border-radius: 6px; margin: 4px 0 12px; }
+.rel-trilho-alto .rel-barra:first-child { border-radius: 6px 0 0 6px; }
+.rel-trilho-alto .rel-barra:last-child { border-radius: 0 6px 6px 0; }
+.rel-trilho-alto .rel-barra:only-child { border-radius: 6px; }
+.rel-grande { margin: 4px 0 10px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.rel-grande strong { font-size: 2.4rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.rel-grande span { color: var(--texto-suave); font-size: .9rem; }
+.rel-grupos { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 12px; }
+.rel-grupo-cab { display: flex; align-items: center; gap: 8px; font-size: .92rem; }
+.rel-grupo-cab span:last-child { color: var(--texto-suave); margin-left: auto; font-size: .85rem; }
+.rel-grupo-voos { margin: 4px 0 0 20px; font-size: .85rem; color: var(--texto-suave); word-spacing: 6px; }
+
+:root {
+  --g-serie: #2b4c9b;
+  --g-origem: #c0392b;
+  --g-neutro: #aab4c0;
+}
+[data-tema="escuro"] {
+  --g-serie: #6f8de8;
+  --g-origem: #e05a4f;
+  --g-neutro: #4f5888;
+}
+.rel-topo { display: flex; align-items: baseline; gap: 14px; }
+.rel-topo h2 { margin: 0; }
+.rel-topo .resumo { margin: 0; font-size: 1.1rem; }
+.rel-numero { padding: 20px 22px; gap: 4px; }
+.rel-numero span { font-size: 1rem; }
+.rel-numero strong { font-size: 2.6rem; }
+#relatorio .cartao h3 { font-size: 1.25rem; margin: 0 0 14px; }
+.rel-comparacao h4 { font-size: 1rem; text-transform: none; }
+.rel-barras { gap: 18px; }
+.rel-barra-rotulo { font-size: 1rem; }
+.rel-trilho { height: 18px; }
+.rel-grande { font-size: 3.2rem; font-weight: 800; line-height: 1; margin: 0 0 16px; font-variant-numeric: tabular-nums; }
+.rel-trilho-alto { height: 34px; }
+#relatorio .rel-legenda { font-size: 1rem; gap: 8px 22px; color: var(--texto); margin: 0; }
+#relatorio .rel-cor { width: 14px; height: 14px; }
+@media (max-width: 420px) {
+  .rel-numero strong { font-size: 1.6rem; }
+  .rel-numero span { font-size: .8rem; }
+  .rel-grande { font-size: 2.6rem; }
+}
+.rel-cor.serie { background: var(--g-serie); }
+@media (max-width: 600px) {
+  .rel-numeros { grid-template-columns: 1fr; gap: 10px; }
+  .rel-numero { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; }
+  .rel-numero span { font-size: .95rem; }
+  .rel-numero strong { font-size: 1.9rem; white-space: nowrap; }
+}
