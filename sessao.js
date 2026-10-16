@@ -140,3 +140,19 @@ function configurarTema() {
   });
 }
 configurarTema();
+
+const MODO = typeof ATRAZUL_MODO === 'string' ? ATRAZUL_MODO : 'demo';
+
+function marcarModo() {
+  document.documentElement.dataset.modo = MODO;
+  if (MODO !== 'demo') return;
+  document.querySelectorAll('.marca-nome, .marca h1').forEach((nome) => {
+    if (nome.querySelector('.selo-modo')) return;
+    const selo = document.createElement('span');
+    selo.className = 'selo-modo';
+    selo.textContent = 'demo';
+    selo.title = 'Ambiente de demonstração: horário simulado';
+    nome.appendChild(selo);
+  });
+}
+marcarModo();

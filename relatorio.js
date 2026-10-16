@@ -242,6 +242,10 @@ const Relatorio = (() => {
     const vazio = 'Sem atrasos.';
     barras($r('rel-sintoma'), sintomas, { maximo, vazio, rotulo: (s) => s.descricao, valor: (s) => s.minutos, classe: () => 'neutro' });
     barras($r('rel-raiz'), raizes, { maximo, vazio, rotulo: (r) => r.descricao, valor: (r) => r.minutos, classe: () => 'serie' });
+    barras($r('rel-areas'), d.areas, {
+      maximo: 100, vazio,
+      rotulo: (a) => `${a.chave} · ${a.minutos} min`, valor: (a) => pct(a.minutos, d.total), classe: () => 'serie', sufixo: '%',
+    });
 
     const av = ModeloMotivo.avaliar(estado.exemplos || []);
     const sugeriu = av.acertou + av.errou;

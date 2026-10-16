@@ -89,6 +89,32 @@ const ModeloMotivo = {
     return { lista, confiante };
   },
 
+  estimarDuracao(texto, motivoCodigo, exemplos) {
+    const minhas = new Set(this.palavras(texto));
+    const vizinhos = (exemplos || [])
+      .filter((ex) => ex.minutos > 0)
+      .map((ex) => {
+        const delas = new Set(this.palavras(ex.texto));
+        const comuns = [...minhas].filter((p) => delas.has(p)).length;
+        let semelhanca = minhas.size && delas.size ? comuns / Math.sqrt(minhas.size * delas.size) : 0;
+        if (motivoCodigo && ex.motivo_codigo === motivoCodigo) semelhanca += 0.25;
+        return { minutos: ex.minutos, semelhanca };
+      })
+      .filter((v) => v.semelhanca > 0)
+      .sort((a, b) => b.semelhanca - a.semelhanca)
+      .slice(0, 5);
+    if (!vizinhos.length) return null;
+    const peso = vizinhos.reduce((s, v) => s + v.semelhanca, 0);
+    const media = vizinhos.reduce((s, v) => s + v.minutos * v.semelhanca, 0) / peso;
+    const valores = vizinhos.map((v) => v.minutos);
+    return {
+      minutos: Math.max(5, Math.round(media / 5) * 5),
+      de: Math.min(...valores),
+      ate: Math.max(...valores),
+      casos: vizinhos.length,
+    };
+  },
+
   avaliar(exemplos) {
     const r = { acertou: 0, errou: 0, semSugestao: 0, total: 0, confirmados: 0 };
     exemplos.forEach((ex) => {

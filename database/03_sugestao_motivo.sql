@@ -26,6 +26,7 @@ create table exemplo_motivo (
     id            serial primary key,
     motivo_codigo text not null references motivo(codigo) on delete cascade,
     texto         text not null,
+    minutos       int check (minutos > 0),
     origem        text not null check (origem in ('INICIAL', 'CONFIRMADO')),
     atraso_id     int unique,
     criado_em     timestamp not null default now()
@@ -69,11 +70,12 @@ begin
     if new.observacao is null or btrim(new.observacao) = '' then
         return new;
     end if;
-    insert into exemplo_motivo (motivo_codigo, texto, origem, atraso_id)
-    values (new.motivo_codigo, new.observacao, 'CONFIRMADO', new.id)
+    insert into exemplo_motivo (motivo_codigo, texto, minutos, origem, atraso_id)
+    values (new.motivo_codigo, new.observacao, new.minutos, 'CONFIRMADO', new.id)
     on conflict (atraso_id) do update
        set motivo_codigo = excluded.motivo_codigo,
            texto         = excluded.texto,
+           minutos       = excluded.minutos,
            criado_em     = now();
     return new;
 end;
@@ -88,64 +90,64 @@ when (new.status = 'VALIDADO' and new.tipo = 'ORIGINADOR'
            or old.observacao is distinct from new.observacao))
 execute function aprender_com_atraso();
 
-insert into exemplo_motivo (motivo_codigo, texto, origem) values
-('11', 'Fila grande no check-in, passageiros chegaram em cima da hora', 'INICIAL'),
-('11', 'Sistema de check-in lento no balcão', 'INICIAL'),
-('11', 'Aguardando passageiros atrasados no portão de embarque', 'INICIAL'),
-('11', 'Passageiros em conexão ainda fazendo check-in', 'INICIAL'),
-('11', 'Grupo grande chegou tarde ao balcão de atendimento', 'INICIAL'),
+insert into exemplo_motivo (motivo_codigo, texto, minutos, origem) values
+('11', 'Fila grande no check-in, passageiros chegaram em cima da hora', 15, 'INICIAL'),
+('11', 'Sistema de check-in lento no balcão', 10, 'INICIAL'),
+('11', 'Aguardando passageiros atrasados no portão de embarque', 10, 'INICIAL'),
+('11', 'Passageiros em conexão ainda fazendo check-in', 20, 'INICIAL'),
+('11', 'Grupo grande chegou tarde ao balcão de atendimento', 15, 'INICIAL'),
 
-('18', 'Esteira de bagagem quebrada', 'INICIAL'),
-('18', 'Carregamento das malas no porão demorou', 'INICIAL'),
-('18', 'Retirada de bagagem de passageiro que não embarcou', 'INICIAL'),
-('18', 'Muitas malas de mão despachadas no portão', 'INICIAL'),
-('18', 'Volume de bagagens acima do previsto', 'INICIAL'),
+('18', 'Esteira de bagagem quebrada', 20, 'INICIAL'),
+('18', 'Carregamento das malas no porão demorou', 15, 'INICIAL'),
+('18', 'Retirada de bagagem de passageiro que não embarcou', 25, 'INICIAL'),
+('18', 'Muitas malas de mão despachadas no portão', 10, 'INICIAL'),
+('18', 'Volume de bagagens acima do previsto', 15, 'INICIAL'),
 
-('33', 'Trator de reboque indisponível no pátio', 'INICIAL'),
-('33', 'Escada de embarque não chegou à aeronave', 'INICIAL'),
-('33', 'GPU com defeito, sem energia externa em solo', 'INICIAL'),
-('33', 'Loader de carga quebrado', 'INICIAL'),
-('33', 'Falta de equipamento de rampa para carregar', 'INICIAL'),
+('33', 'Trator de reboque indisponível no pátio', 20, 'INICIAL'),
+('33', 'Escada de embarque não chegou à aeronave', 15, 'INICIAL'),
+('33', 'GPU com defeito, sem energia externa em solo', 30, 'INICIAL'),
+('33', 'Loader de carga quebrado', 25, 'INICIAL'),
+('33', 'Falta de equipamento de rampa para carregar', 20, 'INICIAL'),
 
-('36', 'Caminhão de abastecimento atrasou', 'INICIAL'),
-('36', 'Abastecimento de combustível demorado', 'INICIAL'),
-('36', 'Fila para abastecer querosene no pátio', 'INICIAL'),
-('36', 'Falta de combustível no aeroporto', 'INICIAL'),
-('36', 'Pedido de combustível extra feito tarde', 'INICIAL'),
-('36', 'Sem gasolina, tanque vazio aguardando abastecer', 'INICIAL'),
-('36', 'Combustível acabou e o caminhão tanque não chegou', 'INICIAL'),
-('36', 'Falta de gasolina de aviação no posto do aeroporto', 'INICIAL'),
+('36', 'Caminhão de abastecimento atrasou', 25, 'INICIAL'),
+('36', 'Abastecimento de combustível demorado', 20, 'INICIAL'),
+('36', 'Fila para abastecer querosene no pátio', 20, 'INICIAL'),
+('36', 'Falta de combustível no aeroporto', 45, 'INICIAL'),
+('36', 'Pedido de combustível extra feito tarde', 15, 'INICIAL'),
+('36', 'Sem gasolina, tanque vazio aguardando abastecer', 35, 'INICIAL'),
+('36', 'Combustível acabou e o caminhão tanque não chegou', 40, 'INICIAL'),
+('36', 'Falta de gasolina de aviação no posto do aeroporto', 45, 'INICIAL'),
 
-('41', 'Pane no motor detectada no pré-voo', 'INICIAL'),
-('41', 'Falha no sistema hidráulico', 'INICIAL'),
-('41', 'Pneu furado encontrado na inspeção', 'INICIAL'),
-('41', 'Luz de alerta acesa no painel, manutenção chamada', 'INICIAL'),
-('41', 'Troca de peça com defeito pela equipe técnica', 'INICIAL'),
-('41', 'Problema no freio do trem de pouso', 'INICIAL'),
+('41', 'Pane no motor detectada no pré-voo', 90, 'INICIAL'),
+('41', 'Falha no sistema hidráulico', 75, 'INICIAL'),
+('41', 'Pneu furado encontrado na inspeção', 45, 'INICIAL'),
+('41', 'Luz de alerta acesa no painel, manutenção chamada', 40, 'INICIAL'),
+('41', 'Troca de peça com defeito pela equipe técnica', 60, 'INICIAL'),
+('41', 'Problema no freio do trem de pouso', 55, 'INICIAL'),
 
-('63', 'Copiloto chegou atrasado ao aeroporto', 'INICIAL'),
-('63', 'Tripulação presa no trânsito', 'INICIAL'),
-('63', 'Comandante passou mal e foi substituído', 'INICIAL'),
-('63', 'Escala de tripulação incompleta', 'INICIAL'),
-('63', 'Piloto excedeu a jornada e precisou de reserva', 'INICIAL'),
+('63', 'Copiloto chegou atrasado ao aeroporto', 25, 'INICIAL'),
+('63', 'Tripulação presa no trânsito', 30, 'INICIAL'),
+('63', 'Comandante passou mal e foi substituído', 60, 'INICIAL'),
+('63', 'Escala de tripulação incompleta', 45, 'INICIAL'),
+('63', 'Piloto excedeu a jornada e precisou de reserva', 50, 'INICIAL'),
 
-('71', 'Chuva forte com raios sobre o aeroporto', 'INICIAL'),
-('71', 'Nevoeiro e visibilidade baixa', 'INICIAL'),
-('71', 'Tempestade na região de decolagem', 'INICIAL'),
-('71', 'Vento forte de través na pista', 'INICIAL'),
-('71', 'Formação de gelo e tempo ruim', 'INICIAL'),
+('71', 'Chuva forte com raios sobre o aeroporto', 40, 'INICIAL'),
+('71', 'Nevoeiro e visibilidade baixa', 35, 'INICIAL'),
+('71', 'Tempestade na região de decolagem', 50, 'INICIAL'),
+('71', 'Vento forte de través na pista', 25, 'INICIAL'),
+('71', 'Formação de gelo e tempo ruim', 45, 'INICIAL'),
 
-('81', 'Controle de tráfego segurou a decolagem', 'INICIAL'),
-('81', 'Fluxo restrito no espaço aéreo', 'INICIAL'),
-('81', 'Espera em solo determinada pelo controle', 'INICIAL'),
-('81', 'Slot de decolagem atrasado pela torre', 'INICIAL'),
-('81', 'Congestionamento de aeronaves para decolar', 'INICIAL'),
+('81', 'Controle de tráfego segurou a decolagem', 20, 'INICIAL'),
+('81', 'Fluxo restrito no espaço aéreo', 15, 'INICIAL'),
+('81', 'Espera em solo determinada pelo controle', 25, 'INICIAL'),
+('81', 'Slot de decolagem atrasado pela torre', 20, 'INICIAL'),
+('81', 'Congestionamento de aeronaves para decolar', 15, 'INICIAL'),
 
-('87', 'Ponte de embarque inoperante', 'INICIAL'),
-('87', 'Falta de energia no terminal', 'INICIAL'),
-('87', 'Pista interditada para obras', 'INICIAL'),
-('87', 'Pátio lotado, sem posição para estacionar', 'INICIAL'),
-('87', 'Sistema do aeroporto fora do ar', 'INICIAL');
+('87', 'Ponte de embarque inoperante', 20, 'INICIAL'),
+('87', 'Falta de energia no terminal', 45, 'INICIAL'),
+('87', 'Pista interditada para obras', 30, 'INICIAL'),
+('87', 'Pátio lotado, sem posição para estacionar', 20, 'INICIAL'),
+('87', 'Sistema do aeroporto fora do ar', 35, 'INICIAL');
 
 alter table palavra_vazia  enable row level security;
 alter table exemplo_motivo enable row level security;

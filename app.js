@@ -83,14 +83,16 @@ async function iniciar() {
   configurarRelogio();
 
   try {
-    const [motivos, aeronaves, vazias] = await Promise.all([
+    const [motivos, aeronaves, vazias, config] = await Promise.all([
       consulta(db.from('motivo').select('*').order('codigo')),
       consulta(db.from('aeronave').select('*').order('matricula')),
       consulta(db.from('palavra_vazia').select('palavra')).catch(() => []),
+      consulta(db.from('configuracao').select('*')).catch(() => []),
     ]);
     estado.motivos = motivos;
     estado.aeronaves = aeronaves;
     ModeloMotivo.vazias = new Set(vazias.map((v) => v.palavra));
+    estado.solo = Number(config.find((c) => c.chave === 'tempo_minimo_solo')?.valor ?? 30);
     await recarregar();
   } catch (e) {
     toast('Não foi possível conectar ao banco de dados: ' + e.message, true);
@@ -131,7 +133,9 @@ async function recarregar() {
       .gte('partida_prevista', inicio).lt('partida_prevista', fim).order('partida_prevista').order('id')),
     consulta(db.from('vw_modelo_palavra').select('*')).catch(() => []),
     consulta(db.from('vw_modelo_motivo').select('*')).catch(() => []),
-    consulta(db.from('exemplo_motivo').select('texto, motivo_codigo, origem')).catch(() => []),
+    consulta(db.from('exemplo_motivo').select('texto, motivo_codigo, origem, minutos'))
+      .catch(() => consulta(db.from('exemplo_motivo').select('texto, motivo_codigo, origem')))
+      .catch(() => []),
   ]);
   estado.exemplos = exemplos;
   ModeloMotivo.treinar(modeloPalavras, modeloMotivos);
@@ -335,13 +339,15 @@ function renderDetalhe() {
   });
   if ($('f-obs')) {
     let espera;
-    $('f-obs').addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(mostrarSugestoes, 200); });
-    $('f-motivo').addEventListener('change', marcarSugestaoEscolhida);
+    $('f-obs').addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(() => { mostrarSugestoes(); atualizarPrevisao(); }, 200); });
+    $('f-motivo').addEventListener('change', () => { marcarSugestaoEscolhida(); atualizarPrevisao(); });
+    $('f-minutos').addEventListener('input', atualizarPrevisao);
     if (rascunho) {
       $('f-obs').value = rascunho.obs;
       $('f-motivo').value = rascunho.motivo;
       $('f-minutos').value = rascunho.minutos;
       mostrarSugestoes();
+      atualizarPrevisao();
       if (rascunho.foco && $(rascunho.foco)) $(rascunho.foco).focus();
     }
   }
@@ -455,6 +461,7 @@ function formAtraso(v) {
       <label>Quantos minutos
         <input id="f-minutos" type="number" min="1" max="600" inputmode="numeric" required>
       </label>
+      <div id="f-previsao" class="previsao" aria-live="polite" hidden></div>
       <div class="acoes">
         <button class="botao" type="submit">Registrar atraso</button>
         <button class="botao fantasma" type="button" id="fechar-form">Cancelar</button>
@@ -490,9 +497,88 @@ function mostrarSugestoes() {
   alvo.querySelectorAll('.sugestao').forEach((b) => b.addEventListener('click', () => {
     $('f-motivo').value = b.dataset.codigo;
     marcarSugestaoEscolhida();
+    atualizarPrevisao();
     $('f-minutos').focus();
   }));
   marcarSugestaoEscolhida();
+}
+
+function minutosEntre(depois, antes) {
+  return Math.round((new Date(depois) - new Date(antes)) / 60000);
+}
+
+function horaMais(ts, minutos) {
+  const d = new Date(ts);
+  d.setMinutes(d.getMinutes() + minutos);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function preverCascata(voo, extra) {
+  const solo = estado.solo ?? 30;
+  const dia = estado.voos
+    .filter((v) => v.matricula === voo.matricula)
+    .sort((a, b) => a.partida_prevista.localeCompare(b.partida_prevista));
+  const simular = (somar) => {
+    let anterior = null;
+    return dia.map((v) => {
+      let herdado = 0;
+      if (anterior && anterior.total > 0) {
+        const folga = Math.max(0, minutosEntre(v.partida_prevista, anterior.chegada) - solo);
+        herdado = Math.max(0, anterior.total - folga);
+      }
+      const total = herdado + v.atraso_novo + (v.id === voo.id ? somar : 0);
+      anterior = { total, chegada: v.chegada_prevista };
+      return { voo: v, total };
+    });
+  };
+  const hoje = simular(0);
+  const depois = simular(extra);
+  const i = dia.findIndex((v) => v.id === voo.id);
+  return depois.slice(i + 1).map((x, j) => ({
+    voo: x.voo,
+    antes: hoje[i + 1 + j].total,
+    depois: x.total,
+  }));
+}
+
+function atualizarPrevisao() {
+  const alvo = $('f-previsao');
+  if (!alvo) return;
+  const voo = estado.voos.find((v) => v.id === estado.vooSelecionado);
+  const est = ModeloMotivo.estimarDuracao($('f-obs').value, $('f-motivo').value, estado.exemplos);
+  const digitado = Number($('f-minutos').value) || 0;
+  const minutos = digitado || est?.minutos || 0;
+  if (!voo || !minutos) { alvo.hidden = true; alvo.innerHTML = ''; return; }
+
+  const duracao = est ? `
+    <div class="previsao-duracao">
+      <div><strong>≈ ${est.minutos} min</strong><span>${est.de === est.ate ? `${est.casos} ${est.casos === 1 ? 'caso parecido' : 'casos parecidos'}` : `entre ${est.de} e ${est.ate} min`}</span></div>
+      ${digitado === est.minutos ? '' : `<button type="button" class="botao secundario" id="usar-previsao">Usar ${est.minutos} min</button>`}
+    </div>` : '';
+
+  const efeitos = preverCascata(voo, minutos);
+  const linhas = efeitos.length
+    ? efeitos.map(({ voo: v, antes, depois }) => {
+        const mais = depois - antes;
+        return `<li class="${mais > 0 ? 'afeta' : ''}">
+          <strong>${esc(v.numero)}</strong>
+          <span>${mais > 0 ? `${horaMais(v.partida_prevista, antes)} → ${horaMais(v.partida_prevista, depois)}` : 'sem efeito'}</span>
+          <em>${mais > 0 ? `+${mais} min` : ''}</em>
+        </li>`;
+      }).join('')
+    : '<li><span>Último voo da aeronave no dia.</span></li>';
+
+  alvo.innerHTML = `
+    <p class="previsao-titulo">Previsão</p>
+    ${duracao}
+    <p class="previsao-sub">Próximos voos com ${minutos} min</p>
+    <ul class="previsao-voos">${linhas}</ul>`;
+  alvo.hidden = false;
+  $('usar-previsao')?.addEventListener('click', () => {
+    $('f-minutos').value = est.minutos;
+    atualizarPrevisao();
+    $('f-minutos').focus();
+  });
 }
 
 function marcarSugestaoEscolhida() {
